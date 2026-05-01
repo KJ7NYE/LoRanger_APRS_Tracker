@@ -38,7 +38,7 @@ bool transmitFlag    = true;
     SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 #endif
 #if defined(HAS_SX1268)
-    #if defined(LIGHTTRACKER_PLUS_1_0)
+    #if defined(LIGHTTRACKER_PLUS_1_0) || defined(LORANGER_V1)
         SPIClass loraSPI(FSPI);
         SX1268 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN, loraSPI);
     #else
@@ -113,7 +113,7 @@ namespace LoRa_Utils {
         #endif
 
         logger.log(logging::LoggerLevel::LOGGER_LEVEL_DEBUG, "LoRa", "Set SPI pins!");
-        #if defined(LIGHTTRACKER_PLUS_1_0)
+        #if defined(LIGHTTRACKER_PLUS_1_0) || defined(LORANGER_V1)
             loraSPI.begin(RADIO_SCLK_PIN, RADIO_MISO_PIN, RADIO_MOSI_PIN, RADIO_CS_PIN);
         #else
             SPI.begin(RADIO_SCLK_PIN, RADIO_MISO_PIN, RADIO_MOSI_PIN);
