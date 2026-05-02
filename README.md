@@ -78,6 +78,11 @@ If this fork is useful to you, please also consider supporting Ricardo (CA2RXU),
 
 For upstream version history, see the [upstream repository](https://github.com/richonguzman/LoRa_APRS_Tracker).
 
+## License
+
+GPL-3.0, inherited from the upstream project. All modifications in this fork are released under the same
+license. See [LICENSE](https://github.com/KJ7NYE/LoRanger_APRS_Tracker/blob/main/LICENSE) for the full terms.
+
 ## This code was based on the work of:
 
 - [Ricardo CA2RXU — LoRa APRS Tracker (direct upstream of this fork)](https://github.com/richonguzman/LoRa_APRS_Tracker)
