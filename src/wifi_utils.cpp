@@ -37,15 +37,28 @@ namespace WIFI_Utils {
     }
 
     void checkIfWiFiAP() {
-        if (Config.wifiAP.active || Config.beacons[0].callsign == "NOCALL-7"){
-            displayShow(" LoRa APRS", "    ** WEB-CONF **","", "WiFiAP:LoRaTracker-AP", "IP    :   192.168.4.1","");
-            logger.log(logging::LoggerLevel::LOGGER_LEVEL_WARN, "Main", "WebConfiguration Started!");
-            startAutoAP();
-            WEB_Utils::setup();
-            while (true) {
-                if (WiFi.softAPgetStationNum() > 0) {
-                    noClientsTime = 0;
-                } else {
+        const bool forceWebConf = Config.wifiAP.active || Config.beacons[0].callsign == "NOCALL-7";
+
+        displayShow(" LoRa APRS", "    ** WEB-CONF **","", "WiFiAP:LoRaTracker-AP", "IP    :   192.168.4.1","");
+        logger.log(logging::LoggerLevel::LOGGER_LEVEL_WARN, "Main", "WebConfiguration Started!");
+        startAutoAP();
+        WEB_Utils::setup();
+
+        const uint32_t startupAPStart = millis();
+        bool clientEverConnected = false;
+
+        while (true) {
+            if (WiFi.softAPgetStationNum() > 0) {
+                clientEverConnected = true;
+                noClientsTime = 0;
+            } else {
+                if (!forceWebConf && !clientEverConnected && (millis() - startupAPStart) > 30 * 1000) {
+                    logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "Startup AP window expired, continuing boot");
+                    WiFi.softAPdisconnect(true);
+                    WiFi.mode(WIFI_OFF);
+                    return;
+                }
+                if (clientEverConnected || forceWebConf) {
                     if (noClientsTime == 0) {
                         noClientsTime = millis();
                     } else if ((millis() - noClientsTime) > 2 * 60 * 1000) {
@@ -58,9 +71,6 @@ namespace WIFI_Utils {
                     }
                 }
             }
-        } else {
-            WiFi.mode(WIFI_OFF);
-            logger.log(logging::LoggerLevel::LOGGER_LEVEL_DEBUG, "Main", "WiFi controller stopped");
         }
     }
 }
