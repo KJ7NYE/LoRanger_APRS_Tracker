@@ -52,8 +52,8 @@
 	},
 	"other": {
 		"simplifiedTrackerMode": false,
-		"sendCommentAfterXBeacons": 10,
-		"path": "WIDE1-1",
+		"sendCommentAfterXBeacons": 4,
+		"path": "WIDE2-2",
 		"nonSmartBeaconRate": 15,
 		"rememberStationTime": 30,
 		"standingUpdateTime": 15,
@@ -89,8 +89,8 @@
 	"lora": [
 		{
 			"frequency": 433775000,
-			"spreadingFactor": 12,
-			"signalBandwidth": 125000,
+			"spreadingFactor": 8,
+			"signalBandwidth": 62500,
 			"codingRate4": 5,
 			"power": 20
 		},
