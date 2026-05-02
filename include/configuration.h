@@ -27,6 +27,7 @@
 class WiFiAP {
 public:
     bool    active;
+    bool    bootWindow;
     String  password;
 };
 
@@ -142,6 +143,7 @@ public:
     int     standingUpdateTime;
     bool    sendAltitude;
     bool    disableGPS;
+    bool    digipeating;
 
     void setDefaultValues();
     bool writeFile();

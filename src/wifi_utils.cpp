@@ -37,7 +37,14 @@ namespace WIFI_Utils {
     }
 
     void checkIfWiFiAP() {
-        const bool forceWebConf = Config.wifiAP.active || Config.beacons[0].callsign == "NOCALL-7";
+        const bool isNoCall      = Config.beacons[0].callsign == "NOCALL-7";
+        const bool forceWebConf  = Config.wifiAP.active || isNoCall;
+        const bool wantStartupAP = forceWebConf || Config.wifiAP.bootWindow;
+
+        if (!wantStartupAP) {
+            logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "Boot AP disabled, skipping web-config");
+            return;
+        }
 
         displayShow(" LoRa APRS", "    ** WEB-CONF **","", "WiFiAP:LoRaTracker-AP", "IP    :   192.168.4.1","");
         logger.log(logging::LoggerLevel::LOGGER_LEVEL_WARN, "Main", "WebConfiguration Started!");

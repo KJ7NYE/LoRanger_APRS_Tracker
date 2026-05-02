@@ -39,6 +39,7 @@ bool Configuration::writeFile() {
     try {
 
         data["wifiAP"]["active"]                    = wifiAP.active;
+        data["wifiAP"]["bootWindow"]                = wifiAP.bootWindow;
         data["wifiAP"]["password"]                  = wifiAP.password;
 
         for (int i = 0; i < beacons.size(); i++) {
@@ -121,6 +122,7 @@ bool Configuration::writeFile() {
         data["other"]["sendAltitude"]               = sendAltitude;
         data["other"]["disableGPS"]                 = disableGPS;
         data["other"]["email"]                      = email;
+        data["other"]["digipeating"]                = digipeating;
 
         serializeJson(data, configFile);
         configFile.close();
@@ -145,8 +147,10 @@ bool Configuration::readFile() {
         }
 
         if (data["wifiAP"]["active"].isNull() ||
+            data["wifiAP"]["bootWindow"].isNull() ||
             data["wifiAP"]["password"].isNull()) needsRewrite = true;
         wifiAP.active               = data["wifiAP"]["active"] | true;
+        wifiAP.bootWindow           = data["wifiAP"]["bootWindow"] | false;
         wifiAP.password             = data["wifiAP"]["password"] | "1234567890";
 
         JsonArray BeaconsArray = data["beacons"];
@@ -273,7 +277,8 @@ bool Configuration::readFile() {
             data["other"]["standingUpdateTime"].isNull() ||
             data["other"]["sendAltitude"].isNull() ||
             data["other"]["disableGPS"].isNull() ||
-            data["other"]["email"].isNull()) needsRewrite = true;
+            data["other"]["email"].isNull() ||
+            data["other"]["digipeating"].isNull()) needsRewrite = true;
         simplifiedTrackerMode           = data["other"]["simplifiedTrackerMode"] | false;
         sendCommentAfterXBeacons        = data["other"]["sendCommentAfterXBeacons"] | 10;
         path                            = data["other"]["path"] | "WIDE1-1";
@@ -283,6 +288,7 @@ bool Configuration::readFile() {
         sendAltitude                    = data["other"]["sendAltitude"] | true;
         disableGPS                      = data["other"]["disableGPS"] | false;
         email                           = data["other"]["email"] | "";
+        digipeating                     = data["other"]["digipeating"] | false;
 
         configFile.close();
 
@@ -302,6 +308,7 @@ bool Configuration::readFile() {
 
 void Configuration::setDefaultValues() {
     wifiAP.active                   = true;
+    wifiAP.bootWindow               = false;
     wifiAP.password                 = "1234567890";
 
     for (int i = 0; i < 3; i++) {
@@ -406,6 +413,7 @@ void Configuration::setDefaultValues() {
     sendAltitude                    = true;
     disableGPS                      = false;
     email                           = "";
+    digipeating                     = false;
 
     Serial.println("New Data Created... All is Written!");
 }

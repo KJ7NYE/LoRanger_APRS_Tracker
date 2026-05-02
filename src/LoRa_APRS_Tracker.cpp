@@ -63,6 +63,7 @@ ____________________________________________________________________*/
 #include "ble_utils.h"
 #include "wx_utils.h"
 #include "display.h"
+#include "serial_setup.h"
 #include "utils.h"
 #ifdef HAS_TOUCHSCREEN
 #include "touch_utils.h"
@@ -107,7 +108,7 @@ double      lastTxLng               = 0.0;
 double      lastTxDistance          = 0.0;
 
 bool        flashlight              = false;
-bool        digipeaterActive        = false;
+bool        digipeaterActive        = Config.digipeating;
 bool        sosActive               = false;
 
 bool        miceActive              = false;
@@ -178,6 +179,7 @@ void setup() {
     POWER_Utils::lowerCpuFrequency();
     logger.log(logging::LoggerLevel::LOGGER_LEVEL_DEBUG, "Main", "Smart Beacon is: %s", Utils::getSmartBeaconState());
     logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "Setup Done!");
+    SERIAL_Setup::setup();
     menuDisplay = 0;
 }
 
@@ -203,6 +205,7 @@ void loop() {
         BUTTON_Utils::loop();
     #endif
     KEYBOARD_Utils::read();
+    SERIAL_Setup::loop();
     #ifdef HAS_JOYSTICK
         JOYSTICK_Utils::loop();
     #endif
