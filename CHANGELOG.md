@@ -9,6 +9,36 @@ Newest entries first. Format: `YYYY-MM-DD — short title (commit)` followed by 
 
 ---
 
+## 2026-05-02 — Add APRS Object reports via per-beacon tactical callsign
+
+New per-beacon `tacticalCallsign` field. When set (≤9 chars), the tracker emits
+an APRS Object report (DTI `;`) labeled with that name instead of a Position
+report. Source address remains the operator's licensed callsign — the tactical
+name is purely the displayed object label, satisfying the "tactical event
+support" use case (SAR, ultra-marathons, jetboat racing) without violating FCC
+station-ID requirements. Empty value preserves today's position-report behavior.
+Mic-E is silently bypassed when tactical is set (it can't carry an object name).
+
+- [lib/APRSPacketLib/](lib/APRSPacketLib/) — APRSPacketLib forked locally
+  (`1.0.4-loranger`); registry pin in `common_settings.ini` removed.
+- [lib/APRSPacketLib/src/APRSPacketLib.cpp](lib/APRSPacketLib/src/APRSPacketLib.cpp),
+  [lib/APRSPacketLib/include/APRSPacketLib.h](lib/APRSPacketLib/include/APRSPacketLib.h) —
+  new `generateObjectPacket()` helper, symmetrical with the existing
+  `generateBase91GPSBeaconPacket()` / `generateMiceGPSBeaconPacket()`. Pads
+  object name to the spec-required 9 chars in one place.
+- [include/configuration.h](include/configuration.h),
+  [src/configuration.cpp](src/configuration.cpp),
+  [data/tracker_conf.json](data/tracker_conf.json) — new
+  `tacticalCallsign` field on each beacon, defaults to empty.
+- [src/station_utils.cpp](src/station_utils.cpp) — `sendBeacon()` branches on
+  tactical-callsign; builds DDHHMMz timestamp from current GPS time.
+- [src/serial_setup.cpp](src/serial_setup.cpp) — `beacon tactical <text>` CLI
+  command; field shown in `beacon list` output.
+- [src/web_utils.cpp](src/web_utils.cpp),
+  [data_embed/script.js](data_embed/script.js) — web config form gains a
+  tactical-callsign input.
+- [SERIAL_SETUP.md](SERIAL_SETUP.md) — beacon command table updated.
+
 ## 2026-05-02 — Add user-configurable SmartBeacon profile (index 3 = Custom)
 
 A 4th SmartBeacon profile is now editable at runtime via the serial CLI, so

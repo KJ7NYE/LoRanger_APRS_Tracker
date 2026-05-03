@@ -131,6 +131,7 @@ namespace SERIAL_Setup {
         Serial.println(F("  beacon callsign <CALL-SSID>"));
         Serial.println(F("  beacon symbol <c>          overlay <c>          micE <0..7>"));
         Serial.println(F("  beacon comment <text...>   status <text...>     label <text...>"));
+        Serial.println(F("  beacon tactical <text...>  (<=9 chars; empty = position report)"));
         Serial.println(F("  beacon smart on|off        gpseco on|off"));
         Serial.println(F("  beacon smartset <0..3>     (0=Runner 1=Bike 2=Car 3=Custom)"));
         Serial.println(F("\n-- smartcustom (used when beacon smartset = 3) --"));
@@ -199,6 +200,7 @@ namespace SERIAL_Setup {
         kv("    mic-e   ", b.micE);
         kv("    comment ", b.comment);
         kv("    status  ", b.status);
+        kv("    tactical", b.tacticalCallsign);
         kv("    label   ", b.profileLabel);
         kv("    smart   ", b.smartBeaconActive);
         kv("    smartset", String((unsigned)b.smartBeaconSetting) + " (" + SMARTBEACON_Utils::profileLabel(b.smartBeaconSetting) + ")");
@@ -411,6 +413,11 @@ namespace SERIAL_Setup {
             String v = restOfLine(line, 2); b.comment = v; ok("comment set (" + String(v.length()) + " chars)");
         } else if (sub == "status") {
             String v = restOfLine(line, 2); b.status = v; ok("status set (" + String(v.length()) + " chars)");
+        } else if (sub == "tactical") {
+            String v = restOfLine(line, 2); v.trim();
+            if (v.length() > 9) v = v.substring(0, 9);
+            b.tacticalCallsign = v;
+            ok("tactical = '" + v + "'" + (v.length() ? " (object mode)" : " (position mode)"));
         } else if (sub == "label") {
             String v = restOfLine(line, 2); b.profileLabel = v; ok("label = " + v);
         } else if (sub == "smart") {

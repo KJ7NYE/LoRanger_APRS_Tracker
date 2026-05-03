@@ -138,6 +138,13 @@ namespace WEB_Utils {
             Config.beacons[i].comment       = request->getParam("beacons." + String(i) + ".comment", true)->value();
             Config.beacons[i].status        = request->getParam("beacons." + String(i) + ".status", true)->value();
             Config.beacons[i].profileLabel  = request->getParam("beacons." + String(i) + ".profileLabel", true)->value();
+            String paramTactical = "beacons." + String(i) + ".tacticalCallsign";
+            if (request->hasParam(paramTactical, true)) {
+                String tac = request->getParam(paramTactical, true)->value();
+                tac.trim();
+                if (tac.length() > 9) tac = tac.substring(0, 9);
+                Config.beacons[i].tacticalCallsign = tac;
+            }
 
             String paramGpsEcoMode = "beacons." + String(i) + ".gpsEcoMode";
             if (request->hasParam(paramGpsEcoMode, true)) {

@@ -87,6 +87,7 @@ which one subsequent commands edit.
 | `beacon micE <0..7>`              | Mic-E status code.                           |
 | `beacon comment <text...>`        | Free-text comment (rest of line).            |
 | `beacon status <text...>`         | Status string (rest of line).                |
+| `beacon tactical <text...>`       | Tactical callsign (≤9 chars). When set, transmits APRS Object reports with this name as the label; source callsign stays your licensed call. Empty value reverts to position report. Overrides Mic-E. |
 | `beacon label <text...>`          | Profile label shown on screen.               |
 | `beacon smart on\|off`            | SmartBeacon active.                          |
 | `beacon smartset <0..3>`          | SmartBeacon profile (`0`=Runner, `1`=Bike, `2`=Car, `3`=Custom — see [SmartBeacon Custom Profile](#smartbeacon-custom-profile)). |

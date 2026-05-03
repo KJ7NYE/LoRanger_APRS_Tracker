@@ -1,0 +1,23 @@
+{
+    "name": "APRSPacketLib",
+    "version": "1.0.4-loranger",
+    "description": "APRS Packet Library to encode and decode many packet formats (LoRanger fork: adds APRS Object packet generator)",
+    "keywords": "APRS, LoRaAPRS, LoRa, HamRadio, Radio",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/richonguzman/APRSPacketLib.git"
+    },
+    "authors": [
+        {
+            "name": "Ricardo Guzman",
+            "email": "richon2001@hotmail.com",
+            "maintainer": true
+        }
+    ],
+    "license": "MIT",
+    "homepage": "https://github.com/richonguzman/APRSPacketLib",
+    "dependencies": {},
+    "frameworks": ["arduino"],
+    "platforms": ["espressif32", "nordicnrf52"],
+    "headers": "APRSPacketLib.h"
+}

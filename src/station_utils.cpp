@@ -197,7 +197,13 @@ namespace STATION_Utils {
         String path = Config.path;
         if (gps.speed.kmph() > 200 || gps.altitude.meters() > 9000) path = ""; // avoid plane speed and altitude
         String packet;
-        if (miceActive) {
+        String tactical = currentBeacon->tacticalCallsign;
+        tactical.trim();
+        if (tactical.length() > 0) {
+            char ts[16];
+            snprintf(ts, sizeof(ts), "%02d%02d%02dz", gps.date.day() % 100, gps.time.hour() % 100, gps.time.minute() % 100);
+            packet = APRSPacketLib::generateObjectPacket(currentBeacon->callsign, "APLRT1", path, tactical, String(ts), currentBeacon->overlay, APRSPacketLib::encodeGPSIntoBase91(gps.location.lat(), gps.location.lng(), gps.course.deg(), gps.speed.knots(), currentBeacon->symbol, Config.sendAltitude, gps.altitude.feet(), sendStandingUpdate));
+        } else if (miceActive) {
             packet = APRSPacketLib::generateMiceGPSBeaconPacket(currentBeacon->micE, currentBeacon->callsign, currentBeacon->symbol, currentBeacon->overlay, path, gps.location.lat(), gps.location.lng(), gps.course.deg(), gps.speed.knots(), gps.altitude.meters());
         } else {
             packet = APRSPacketLib::generateBase91GPSBeaconPacket(currentBeacon->callsign, "APLRT1", path, currentBeacon->overlay, APRSPacketLib::encodeGPSIntoBase91(gps.location.lat(),gps.location.lng(), gps.course.deg(), gps.speed.knots(), currentBeacon->symbol, Config.sendAltitude, gps.altitude.feet(), sendStandingUpdate));

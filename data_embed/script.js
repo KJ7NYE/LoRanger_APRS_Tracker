@@ -103,13 +103,23 @@ function loadSettings(settings) {
                 <label for="beacons.${index}.micE">Mic-E</label>
             </div>
             <div class="form-floating col-12 col-md-9 px-1 mb-2" style="margin-left: 50px;">
-                <input 
-                    type="text" 
-                    class="form-control form-control-sm" 
-                    name="beacons.${index}.comment" 
-                    id="beacons.${index}.comment" 
+                <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    name="beacons.${index}.comment"
+                    id="beacons.${index}.comment"
                     value="${beacons.comment}">
                 <label for="beacons.${index}.comment">Comment</label>
+            </div>
+            <div class="form-floating col-12 col-md-9 px-1 mb-2" style="margin-left: 50px;">
+                <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    maxlength="9"
+                    name="beacons.${index}.tacticalCallsign"
+                    id="beacons.${index}.tacticalCallsign"
+                    value="${beacons.tacticalCallsign || ''}">
+                <label for="beacons.${index}.tacticalCallsign">Tactical Callsign (object name, &le;9 chars; empty = position report)</label>
             </div>
             <div class="form-check form-switch col-6 col-md-5 px-1 mb-2" style="margin-left: 90px;">
                 <input 

@@ -44,6 +44,7 @@ public:
     bool    gpsEcoMode;
     String  profileLabel;
     String  status;
+    String  tacticalCallsign;
 };
 
 class Display {

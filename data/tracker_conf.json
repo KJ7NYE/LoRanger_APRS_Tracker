@@ -3,26 +3,28 @@
 		{
 			"callsign": "NOCALL-7",
 			"gpsEcoMode": false,
-			"symbol": "[",
+			"symbol": "s",
 			"overlay": "/",
 			"micE": "",
-			"comment": "",
+			"comment": "World Jetboat Races 2026 - KJ7NYE",
 			"status": "",
 			"smartBeaconActive": true,
-			"smartBeaconSetting": 0,
-			"profileLabel": ""
+			"smartBeaconSetting": 2,
+			"profileLabel": "",
+			"tacticalCallsign": ""
 		},
 		{
 			"callsign": "NOCALL-7",
 			"gpsEcoMode": false,
-			"symbol": ">",
+			"symbol": "",
 			"overlay": "/",
 			"micE": "",
 			"comment": "",
 			"status": "",
 			"smartBeaconActive": true,
 			"smartBeaconSetting": 2,
-			"profileLabel": ""
+			"profileLabel": "",
+			"tacticalCallsign": ""
 		},
 		{
 			"callsign": "NOCALL-7",
@@ -34,7 +36,8 @@
 			"status": "",
 			"smartBeaconActive": true,
 			"smartBeaconSetting": 1,
-			"profileLabel": ""
+			"profileLabel": "",
+			"tacticalCallsign": ""
 		}
 	],
 	"display": {
