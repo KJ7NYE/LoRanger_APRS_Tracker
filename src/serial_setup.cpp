@@ -9,6 +9,8 @@
  */
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
+#include <SPIFFS.h>
 #include <logger.h>
 #include "serial_setup.h"
 #include "configuration.h"
@@ -32,6 +34,15 @@ namespace SERIAL_Setup {
     static bool                 showSecrets     = false;
     static logging::LoggerLevel savedLogLevel   = logging::LoggerLevel::LOGGER_LEVEL_INFO;
     static logging::LoggerLevel currentLogLevel = logging::LoggerLevel::LOGGER_LEVEL_INFO;
+
+    // paste-import state
+    static bool                 pasting         = false;
+    static String               pasteBuf;
+    static int                  pasteBraceDepth = 0;
+    static bool                 pasteSawOpen    = false;
+    static bool                 pasteInString   = false;
+    static bool                 pasteEscapeNext = false;
+    static const size_t         PASTE_MAX_BYTES = 16384;
 
     // ---------------- helpers ----------------
     static void prompt()                    { Serial.print(F("\n> ")); }
@@ -88,8 +99,6 @@ namespace SERIAL_Setup {
         return line.substring(i);
     }
 
-    static const char* boolStr(bool b) { return b ? "on" : "off"; }
-
     // ---------------- printers ----------------
     static void printBanner() {
         Serial.println();
@@ -108,6 +117,9 @@ namespace SERIAL_Setup {
         Serial.println(F("                              winlink|wifi|other)"));
         Serial.println(F("  show secrets               toggle masked password display"));
         Serial.println(F("  save                       persist to tracker_conf.json"));
+        Serial.println(F("  export                     dump current saved tracker_conf.json"));
+        Serial.println(F("  import                     paste full tracker_conf.json (auto-end on"));
+        Serial.println(F("                              balanced braces, Ctrl-C aborts)"));
         Serial.println(F("  discard                    leave without saving"));
         Serial.println(F("  exit                       leave (errors if dirty)"));
         Serial.println(F("  reboot                     ESP.restart()"));
@@ -550,6 +562,129 @@ namespace SERIAL_Setup {
         okClean("log level (post-exit) = " + lv);
     }
 
+    // ---------------- import / export ----------------
+    static void resetPasteState() {
+        pasting         = false;
+        pasteBuf        = "";
+        pasteBraceDepth = 0;
+        pasteSawOpen    = false;
+        pasteInString   = false;
+        pasteEscapeNext = false;
+    }
+
+    static void exportConfig() {
+        File f = SPIFFS.open("/tracker_conf.json", "r");
+        Serial.println(F("---- BEGIN tracker_conf.json ----"));
+        if (!f) {
+            Serial.println(F("(no saved config -- use 'save' first)"));
+        } else {
+            while (f.available()) Serial.write(f.read());
+            f.close();
+            Serial.println();
+        }
+        Serial.println(F("---- END tracker_conf.json ----"));
+    }
+
+    static void beginImport() {
+        resetPasteState();
+        pasting = true;
+        pasteBuf.reserve(4096);
+        Serial.println(F("\nPaste full tracker_conf.json now."));
+        Serial.println(F("End auto-detected on balanced braces. Ctrl-C aborts."));
+        Serial.println(F("Note: existing config is overwritten and device reboots on success.\n"));
+    }
+
+    static void commitImport() {
+        // pasting flag and buffer ownership: caller leaves us responsible
+        // for clearing state regardless of outcome.
+        JsonDocument doc;
+        DeserializationError jerr = deserializeJson(doc, pasteBuf);
+        if (jerr) {
+            Serial.print(F("[import] parse failed: "));
+            Serial.println(jerr.c_str());
+            Serial.println(F("[import] existing config unchanged"));
+            resetPasteState();
+            return;
+        }
+
+        // minimum viability: at least one beacon with a non-empty callsign
+        JsonArrayConst beaconsArr = doc["beacons"];
+        if (beaconsArr.size() == 0) {
+            Serial.println(F("[import] rejected: no beacons[] array"));
+            resetPasteState();
+            return;
+        }
+        const char* cs0 = beaconsArr[0]["callsign"] | "";
+        if (cs0[0] == '\0') {
+            Serial.println(F("[import] rejected: beacons[0].callsign is empty"));
+            resetPasteState();
+            return;
+        }
+
+        File f = SPIFFS.open("/tracker_conf.json", "w");
+        if (!f) {
+            Serial.println(F("[import] failed to open file for write"));
+            resetPasteState();
+            return;
+        }
+        size_t written = serializeJson(doc, f);
+        f.close();
+        if (written == 0) {
+            Serial.println(F("[import] write failed (0 bytes)"));
+            resetPasteState();
+            return;
+        }
+        resetPasteState();
+
+        Serial.print(F("[import] config written ("));
+        Serial.print((unsigned)written);
+        Serial.println(F(" bytes). Rebooting to apply..."));
+        delay(300);
+        ESP.restart();
+    }
+
+    // top-of-loop hook: route a single byte into paste-mode buffer when active.
+    // returns true if the byte was consumed by paste-mode (caller should skip
+    // the normal line-mode handling for this byte).
+    static bool feedPasteByte(char c) {
+        if (!pasting) return false;
+
+        if (c == 0x03) { // Ctrl-C
+            resetPasteState();
+            Serial.println(F("\r\n[import] aborted"));
+            return true;
+        }
+        if (pasteBuf.length() >= PASTE_MAX_BYTES) {
+            resetPasteState();
+            Serial.print(F("\r\n[import] buffer overflow (>"));
+            Serial.print((unsigned)PASTE_MAX_BYTES);
+            Serial.println(F(" bytes) -- aborted"));
+            return true;
+        }
+
+        pasteBuf += c;
+        Serial.write(c); // local echo so paste is visible
+
+        // brace tracker, string-aware
+        if (pasteEscapeNext) {
+            pasteEscapeNext = false;
+        } else if (pasteInString) {
+            if      (c == '\\') pasteEscapeNext = true;
+            else if (c == '"')  pasteInString = false;
+        } else {
+            if      (c == '"') pasteInString = true;
+            else if (c == '{') { pasteBraceDepth++; pasteSawOpen = true; }
+            else if (c == '}') {
+                if (pasteBraceDepth > 0) pasteBraceDepth--;
+                if (pasteBraceDepth == 0 && pasteSawOpen) {
+                    Serial.println(F("\r\n[import] braces balanced, parsing..."));
+                    commitImport();
+                }
+            }
+        }
+        return true;
+    }
+
     // ---------------- top-level dispatch ----------------
     static void handleLine(const String& line) {
         String tk[8];
@@ -569,6 +704,11 @@ namespace SERIAL_Setup {
         else if (cmd == "save") {
             if (Config.writeFile()) { dirty = false; okClean("config saved"); }
             else                    { err("save failed"); }
+        }
+        else if (cmd == "export") exportConfig();
+        else if (cmd == "import") {
+            if (dirty) { err("unsaved edits would be lost -- 'save' or 'discard' first"); return; }
+            beginImport();
         }
         else if (cmd == "discard") {
             if (!dirty) { okClean("nothing to discard"); doExit(true); return; }
@@ -619,6 +759,19 @@ namespace SERIAL_Setup {
             if (ch < 0) break;
             char c = (char)ch;
 
+            // paste-import mode swallows everything until balanced or aborted
+            if (feedPasteByte(c)) {
+                if (!pasting && active) prompt();      // only after commit/abort
+                continue;
+            }
+
+            if (c == 0x03 && active) {                 // Ctrl-C clears typed buf
+                buf = "";
+                Serial.println(F("^C"));
+                prompt();
+                continue;
+            }
+
             if (c == '\r' || c == '\n') {
                 Serial.print(F("\r\n"));               // line break echo
                 if (buf.length() == 0) {
@@ -636,7 +789,7 @@ namespace SERIAL_Setup {
                     }
                 } else {
                     handleLine(buf);
-                    if (active) prompt();
+                    if (active && !pasting) prompt();
                 }
                 buf = "";
             } else if (c == 0x08 || c == 0x7F) {       // backspace / DEL

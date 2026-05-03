@@ -65,6 +65,8 @@ previous level is restored on `exit`.
 | `show <section>`                          | Dump one section (`beacons`, `lora`, `display`, `bt`, `notif`, `bat`, `telem`, `ptt`, `winlink`, `wifi`, `other`). |
 | `show secrets`                            | Toggle masked password display (`***` ↔ plaintext).    |
 | `save`                                    | Persist to `tracker_conf.json`.                        |
+| `export`                                  | Dump the current saved `tracker_conf.json` to the terminal. |
+| `import`                                  | Paste a full `tracker_conf.json`. Auto-ends on balanced braces; Ctrl-C aborts. Validates JSON + non-empty `beacons[0].callsign`; reboots on success. |
 | `discard`                                 | Drop unsaved changes (reboots).                        |
 | `exit`                                    | Leave setup mode (errors if dirty).                    |
 | `reboot`                                  | `ESP.restart()`.                                       |
@@ -245,6 +247,40 @@ When the firmware boots with an older `tracker_conf.json` that lacks the new
 sets defaults, rewrites the JSON, and reboots once — giving you a clean
 upgraded config on the next boot.
 
+### Config Replication via `export` / `import`
+
+`export` dumps the on-disk JSON; `import` accepts a complete pasted JSON and
+replaces the on-disk config wholesale. Together they form a backup/restore
++ device-cloning workflow that doesn't require WiFi or external tooling.
+
+**End-of-paste detection.** `import` watches for balanced `{` / `}`, with
+string- and escape-awareness so a `}` inside a comment field doesn't
+terminate early. Once braces balance after at least one open brace, the
+buffer is parsed.
+
+**Validation gates** — all must pass before any flash write:
+
+1. JSON must parse (ArduinoJson `deserializeJson` returns success).
+2. `beacons[]` array must exist and be non-empty.
+3. `beacons[0].callsign` must be non-empty.
+
+If any gate fails, the existing `tracker_conf.json` is untouched and the
+CLI prints a diagnostic. The buffer is capped at 16 KB, and Ctrl-C aborts
+mid-paste cleanly.
+
+**Reboot-on-success.** A successful `import` writes the JSON and calls
+`ESP.restart()` so the new config is the live config. This matches the
+existing `discard` semantics.
+
+**Round-trip canonicalization.** `import` reserializes via ArduinoJson, so
+whitespace and unknown fields are stripped. An `export` from a newer
+firmware can be `import`ed by an older firmware (older fields kept, newer
+fields ignored) and the existing `readFile()` missing-key fill-in path
+backstops with C++ defaults on the next boot.
+
+**Refuses to start with unsaved edits.** If you've made CLI edits without
+`save`, `import` errors out — `save` or `discard` first.
+
 ---
 
 ## Example Sessions
@@ -297,6 +333,24 @@ web-config at `192.168.4.1`.
 setup
 log debug          # will apply after exit
 exit
+```
+
+### Cloning a device via `export` / `import`
+
+On the source device:
+
+```
+setup
+export             # copy the JSON between the BEGIN/END markers
+exit
+```
+
+On the destination device:
+
+```
+setup
+import             # paste the JSON from above; press Enter
+                   # device reboots automatically on success
 ```
 
 ---
