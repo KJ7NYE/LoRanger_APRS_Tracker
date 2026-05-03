@@ -22,6 +22,7 @@
 #include "board_pinout.h"
 #include "display.h"
 #include "logger.h"
+#include "smartbeacon_utils.h"
 
 extern logging::Logger logger;
 
@@ -123,6 +124,15 @@ bool Configuration::writeFile() {
         data["other"]["disableGPS"]                 = disableGPS;
         data["other"]["email"]                      = email;
         data["other"]["digipeating"]                = digipeating;
+
+        data["customSmartBeacon"]["slowRate"]       = customSmartBeacon.slowRate;
+        data["customSmartBeacon"]["slowSpeed"]      = customSmartBeacon.slowSpeed;
+        data["customSmartBeacon"]["fastRate"]       = customSmartBeacon.fastRate;
+        data["customSmartBeacon"]["fastSpeed"]      = customSmartBeacon.fastSpeed;
+        data["customSmartBeacon"]["minTxDist"]      = customSmartBeacon.minTxDist;
+        data["customSmartBeacon"]["minDeltaBeacon"] = customSmartBeacon.minDeltaBeacon;
+        data["customSmartBeacon"]["turnMinDeg"]     = customSmartBeacon.turnMinDeg;
+        data["customSmartBeacon"]["turnSlope"]      = customSmartBeacon.turnSlope;
 
         serializeJson(data, configFile);
         configFile.close();
@@ -290,6 +300,24 @@ bool Configuration::readFile() {
         email                           = data["other"]["email"] | "";
         digipeating                     = data["other"]["digipeating"] | false;
 
+        if (data["customSmartBeacon"]["slowRate"].isNull() ||
+            data["customSmartBeacon"]["slowSpeed"].isNull() ||
+            data["customSmartBeacon"]["fastRate"].isNull() ||
+            data["customSmartBeacon"]["fastSpeed"].isNull() ||
+            data["customSmartBeacon"]["minTxDist"].isNull() ||
+            data["customSmartBeacon"]["minDeltaBeacon"].isNull() ||
+            data["customSmartBeacon"]["turnMinDeg"].isNull() ||
+            data["customSmartBeacon"]["turnSlope"].isNull()) needsRewrite = true;
+        customSmartBeacon.slowRate       = data["customSmartBeacon"]["slowRate"]       | 120;
+        customSmartBeacon.slowSpeed      = data["customSmartBeacon"]["slowSpeed"]      | 5;
+        customSmartBeacon.fastRate       = data["customSmartBeacon"]["fastRate"]       | 60;
+        customSmartBeacon.fastSpeed      = data["customSmartBeacon"]["fastSpeed"]      | 40;
+        customSmartBeacon.minTxDist      = data["customSmartBeacon"]["minTxDist"]      | 100;
+        customSmartBeacon.minDeltaBeacon = data["customSmartBeacon"]["minDeltaBeacon"] | 12;
+        customSmartBeacon.turnMinDeg     = data["customSmartBeacon"]["turnMinDeg"]     | 12;
+        customSmartBeacon.turnSlope      = data["customSmartBeacon"]["turnSlope"]      | 60;
+        SMARTBEACON_Utils::setCustomValues(customSmartBeacon);
+
         configFile.close();
 
         if (needsRewrite) {
@@ -414,6 +442,9 @@ void Configuration::setDefaultValues() {
     disableGPS                      = false;
     email                           = "";
     digipeating                     = false;
+
+    customSmartBeacon               = { 120, 5, 60, 40, 100, 12, 12, 60 };
+    SMARTBEACON_Utils::setCustomValues(customSmartBeacon);
 
     Serial.println("New Data Created... All is Written!");
 }

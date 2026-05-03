@@ -14,6 +14,7 @@
 #include <logger.h>
 #include "serial_setup.h"
 #include "configuration.h"
+#include "smartbeacon_utils.h"
 
 extern Configuration        Config;
 extern logging::Logger      logger;
@@ -113,8 +114,8 @@ namespace SERIAL_Setup {
         Serial.println(F("\n-- core --"));
         Serial.println(F("  help                       show this list"));
         Serial.println(F("  show [section]             dump config (sections: beacons|lora|"));
-        Serial.println(F("                              display|bt|notif|bat|telem|ptt|"));
-        Serial.println(F("                              winlink|wifi|other)"));
+        Serial.println(F("                              smartcustom|display|bt|notif|bat|"));
+        Serial.println(F("                              telem|ptt|winlink|wifi|other)"));
         Serial.println(F("  show secrets               toggle masked password display"));
         Serial.println(F("  save                       persist to tracker_conf.json"));
         Serial.println(F("  export                     dump current saved tracker_conf.json"));
@@ -130,7 +131,14 @@ namespace SERIAL_Setup {
         Serial.println(F("  beacon callsign <CALL-SSID>"));
         Serial.println(F("  beacon symbol <c>          overlay <c>          micE <0..7>"));
         Serial.println(F("  beacon comment <text...>   status <text...>     label <text...>"));
-        Serial.println(F("  beacon smart on|off        smartset <0..n>      gpseco on|off"));
+        Serial.println(F("  beacon smart on|off        gpseco on|off"));
+        Serial.println(F("  beacon smartset <0..3>     (0=Runner 1=Bike 2=Car 3=Custom)"));
+        Serial.println(F("\n-- smartcustom (used when beacon smartset = 3) --"));
+        Serial.println(F("  smartcustom show"));
+        Serial.println(F("  smartcustom slowrate <sec>     slowspeed <km/h>"));
+        Serial.println(F("  smartcustom fastrate <sec>     fastspeed <km/h>"));
+        Serial.println(F("  smartcustom mintxdist <m>      mindelta <sec>"));
+        Serial.println(F("  smartcustom turnmindeg <deg>   turnslope <n>"));
         Serial.println(F("\n-- lora --"));
         Serial.println(F("  lora list"));
         Serial.println(F("  lora select <0..3>         (0=EU 1=PL 2=UK 3=US)"));
@@ -193,7 +201,7 @@ namespace SERIAL_Setup {
         kv("    status  ", b.status);
         kv("    label   ", b.profileLabel);
         kv("    smart   ", b.smartBeaconActive);
-        kv("    smartset", (unsigned)b.smartBeaconSetting);
+        kv("    smartset", String((unsigned)b.smartBeaconSetting) + " (" + SMARTBEACON_Utils::profileLabel(b.smartBeaconSetting) + ")");
         kv("    gpsEco  ", b.gpsEcoMode);
     }
 
@@ -209,6 +217,27 @@ namespace SERIAL_Setup {
         kv("    power", l.power);
     }
 
+    static void printSmartCustom() {
+        SmartBeaconValues& s = Config.customSmartBeacon;
+        Serial.println("  customSmartBeacon (used when beacon smartset = 3):");
+        kv("    slowRate      ", s.slowRate);
+        kv("    slowSpeed     ", s.slowSpeed);
+        kv("    fastRate      ", s.fastRate);
+        kv("    fastSpeed     ", s.fastSpeed);
+        kv("    minTxDist     ", s.minTxDist);
+        kv("    minDeltaBeacon", s.minDeltaBeacon);
+        kv("    turnMinDeg    ", s.turnMinDeg);
+        kv("    turnSlope     ", s.turnSlope);
+        String users = "";
+        for (size_t i = 0; i < Config.beacons.size(); i++) {
+            if (Config.beacons[i].smartBeaconSetting == SMARTBEACON_CUSTOM_INDEX) {
+                if (users.length()) users += ",";
+                users += String((unsigned)i);
+            }
+        }
+        Serial.println("    used by beacon[s]: " + (users.length() ? users : String("(none)")));
+    }
+
     static void printSection(const String& section) {
         if (section == "" || section == "beacons") {
             hdr("beacons");
@@ -219,6 +248,10 @@ namespace SERIAL_Setup {
             hdr("lora");
             kv("selected", selLora);
             for (size_t i = 0; i < Config.loraTypes.size(); i++) printLora(i);
+        }
+        if (section == "" || section == "smartcustom") {
+            hdr("smartcustom");
+            printSmartCustom();
         }
         if (section == "" || section == "display") {
             hdr("display");
@@ -384,9 +417,14 @@ namespace SERIAL_Setup {
             if (n < 3) { err("smart on|off"); return; }
             applyBool(tk[2], b.smartBeaconActive, "smart");
         } else if (sub == "smartset") {
-            if (n < 3) { err("smartset <n>"); return; }
-            b.smartBeaconSetting = (byte)tk[2].toInt();
-            ok("smartset = " + String(b.smartBeaconSetting));
+            if (n < 3) { err("smartset <0..3>  (0=Runner 1=Bike 2=Car 3=Custom)"); return; }
+            int v = tk[2].toInt();
+            if (v < 0 || v >= SMARTBEACON_PROFILE_COUNT) {
+                err("smartset must be 0..3  (0=Runner 1=Bike 2=Car 3=Custom)");
+                return;
+            }
+            b.smartBeaconSetting = (byte)v;
+            ok("smartset = " + String(b.smartBeaconSetting) + " (" + SMARTBEACON_Utils::profileLabel(b.smartBeaconSetting) + ")");
         } else if (sub == "gpseco") {
             if (n < 3) { err("gpseco on|off"); return; }
             applyBool(tk[2], b.gpsEcoMode, "gpseco");
@@ -441,6 +479,30 @@ namespace SERIAL_Setup {
         } else {
             err("unknown lora subcommand: " + sub);
         }
+    }
+
+    static void cmdSmartcustom(String* tk, int n, const String& /*line*/) {
+        if (n < 2) { err("smartcustom <show|slowrate|slowspeed|fastrate|fastspeed|mintxdist|mindelta|turnmindeg|turnslope> <n>"); return; }
+        const String& sub = tk[1];
+
+        if (sub == "show") { printSmartCustom(); return; }
+
+        if (n < 3) { err("smartcustom " + sub + " <n>"); return; }
+        SmartBeaconValues& s = Config.customSmartBeacon;
+        int v = tk[2].toInt();
+
+        if      (sub == "slowrate")   { s.slowRate       = v; }
+        else if (sub == "slowspeed")  { s.slowSpeed      = v; }
+        else if (sub == "fastrate")   { s.fastRate       = v; }
+        else if (sub == "fastspeed")  { s.fastSpeed      = v; }
+        else if (sub == "mintxdist")  { s.minTxDist      = v; }
+        else if (sub == "mindelta")   { s.minDeltaBeacon = v; }
+        else if (sub == "turnmindeg") { s.turnMinDeg     = v; }
+        else if (sub == "turnslope")  { s.turnSlope      = v; }
+        else { err("unknown smartcustom subcommand: " + sub); return; }
+
+        SMARTBEACON_Utils::setCustomValues(s);
+        ok("customSmartBeacon." + sub + " = " + String(v));
     }
 
     static void cmdDisplay(String* tk, int n) {
@@ -721,6 +783,7 @@ namespace SERIAL_Setup {
         else if (cmd == "log")                      cmdLog(tk, n);
         else if (cmd == "beacon")                   cmdBeacon(tk, n, line);
         else if (cmd == "lora")                     cmdLora(tk, n, line);
+        else if (cmd == "smartcustom")              cmdSmartcustom(tk, n, line);
         else if (cmd == "display")                  cmdDisplay(tk, n);
         else if (cmd == "bt")                       cmdBt(tk, n, line);
         else if (cmd == "notif")                    cmdNotif(tk, n);

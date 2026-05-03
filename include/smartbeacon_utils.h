@@ -33,12 +33,17 @@ struct SmartBeaconValues {
     int     turnSlope;
 };
 
+static constexpr byte SMARTBEACON_PROFILE_COUNT = 4;
+static constexpr byte SMARTBEACON_CUSTOM_INDEX  = 3;
+
 namespace SMARTBEACON_Utils {
 
     void checkSettings(byte index);
     void checkInterval(int speed);
     void checkFixedBeaconTime();
     void checkState();
+    void setCustomValues(const SmartBeaconValues& v);
+    const char* profileLabel(byte index);
 
 }
 

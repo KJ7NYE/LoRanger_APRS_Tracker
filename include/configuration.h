@@ -22,6 +22,7 @@
 #include <Arduino.h>
 #include <vector>
 #include <FS.h>
+#include "smartbeacon_utils.h"
 
 
 class WiFiAP {
@@ -133,6 +134,7 @@ public:
     std::vector<LoraType>   loraTypes;
     PTT                     ptt;
     BLUETOOTH               bluetooth;
+    SmartBeaconValues       customSmartBeacon;
 
     bool    simplifiedTrackerMode;
     int     sendCommentAfterXBeacons;

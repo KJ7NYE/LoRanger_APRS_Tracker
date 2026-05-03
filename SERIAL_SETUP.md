@@ -62,7 +62,7 @@ previous level is restored on `exit`.
 |-------------------------------------------|--------------------------------------------------------|
 | `help`                                    | List all commands.                                     |
 | `show`                                    | Dump entire config.                                    |
-| `show <section>`                          | Dump one section (`beacons`, `lora`, `display`, `bt`, `notif`, `bat`, `telem`, `ptt`, `winlink`, `wifi`, `other`). |
+| `show <section>`                          | Dump one section (`beacons`, `lora`, `smartcustom`, `display`, `bt`, `notif`, `bat`, `telem`, `ptt`, `winlink`, `wifi`, `other`). |
 | `show secrets`                            | Toggle masked password display (`***` ↔ plaintext).    |
 | `save`                                    | Persist to `tracker_conf.json`.                        |
 | `export`                                  | Dump the current saved `tracker_conf.json` to the terminal. |
@@ -89,8 +89,35 @@ which one subsequent commands edit.
 | `beacon status <text...>`         | Status string (rest of line).                |
 | `beacon label <text...>`          | Profile label shown on screen.               |
 | `beacon smart on\|off`            | SmartBeacon active.                          |
-| `beacon smartset <n>`             | SmartBeacon profile setting.                 |
+| `beacon smartset <0..3>`          | SmartBeacon profile (`0`=Runner, `1`=Bike, `2`=Car, `3`=Custom — see [SmartBeacon Custom Profile](#smartbeacon-custom-profile)). |
 | `beacon gpseco on\|off`           | Per-beacon GPS eco mode.                     |
+
+### SmartBeacon Custom Profile
+
+A user-editable 4th SmartBeacon profile shared by every beacon that selects
+`smartset 3`. Edits take effect **live** — no `save` + reboot needed to
+retune cadence in the field. Persist with `save` to keep them across reboots.
+
+| Command                              | Description                                                |
+|--------------------------------------|------------------------------------------------------------|
+| `smartcustom show`                   | Print the 8 custom values plus which beacons use them.     |
+| `smartcustom slowrate <sec>`         | Beacon interval at or below `slowSpeed`.                   |
+| `smartcustom slowspeed <km/h>`       | Speed at/below which `slowRate` applies.                   |
+| `smartcustom fastrate <sec>`         | Beacon interval at or above `fastSpeed`.                   |
+| `smartcustom fastspeed <km/h>`       | Speed at/above which `fastRate` applies.                   |
+| `smartcustom mintxdist <m>`          | Minimum distance between beacons.                          |
+| `smartcustom mindelta <sec>`         | Minimum spacing between beacons.                           |
+| `smartcustom turnmindeg <deg>`       | Minimum heading change to trigger a corner peg.            |
+| `smartcustom turnslope <n>`          | Turn-angle slope (lower = peg sooner at speed).            |
+
+Defaults are bike-like (`120, 5, 60, 40, 100, 12, 12, 60`). The on-disk JSON
+gains a new top-level `customSmartBeacon` object. Older configs without the
+key are auto-upgraded on first boot via the existing missing-key rewrite
+path.
+
+If the saved `smartBeaconSetting` is out of range (e.g. from a hand-edited
+JSON or older firmware), `checkSettings()` clamps to `0` (Runner) and prints
+a warning to serial — the tracker won't crash on a bad value.
 
 ### LoRa
 
@@ -360,16 +387,17 @@ import             # paste the JSON from above; press Enter
 The CLI reads/writes the same fields the web-config touches. Mapping CLI
 section → JSON path in `tracker_conf.json`:
 
-| CLI section | JSON key       |
-|-------------|----------------|
-| `beacons`   | `beacons[]`    |
-| `lora`      | `lora[]`       |
-| `display`   | `display`      |
-| `bt`        | `bluetooth`    |
-| `notif`     | `notification` |
-| `bat`       | `battery`      |
-| `telem`     | `telemetry`    |
-| `ptt`       | `pttTrigger`   |
-| `winlink`   | `winlink`      |
-| `wifi`      | `wifiAP`       |
-| `other`     | `other`        |
+| CLI section    | JSON key             |
+|----------------|----------------------|
+| `beacons`      | `beacons[]`          |
+| `lora`         | `lora[]`             |
+| `smartcustom`  | `customSmartBeacon`  |
+| `display`      | `display`            |
+| `bt`           | `bluetooth`          |
+| `notif`        | `notification`       |
+| `bat`          | `battery`            |
+| `telem`        | `telemetry`          |
+| `ptt`          | `pttTrigger`         |
+| `winlink`      | `winlink`            |
+| `wifi`         | `wifiAP`             |
+| `other`        | `other`              |

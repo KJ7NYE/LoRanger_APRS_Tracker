@@ -35,20 +35,42 @@ bool                wxRequestStatus             = false;
 uint32_t            wxRequestTime               = 0;
 
 
-SmartBeaconValues   smartBeaconSettings[3] = {
+SmartBeaconValues   smartBeaconSettings[SMARTBEACON_PROFILE_COUNT] = {
     {120,  3, 60, 15,  50, 20, 12, 60},     // Runner settings  = SLOW
     {120,  5, 60, 40, 100, 12, 12, 60},     // Bike settings    = MEDIUM
-    {120, 10, 10, 110, 100, 10, 10, 80}      // Car settings     = FAST
+    {120, 10, 10, 110, 100, 10, 10, 80},     // Car settings     = FAST
+    {120,  5, 60, 40, 100, 12, 12, 60}      // Custom slot      = filled from Config.customSmartBeacon at load
+};
+
+static const char* SMARTBEACON_PROFILE_LABELS[SMARTBEACON_PROFILE_COUNT] = {
+    "Runner", "Bike", "Car", "Custom"
 };
 
 
 namespace SMARTBEACON_Utils {
 
     void checkSettings(byte index) {
+        if (index >= SMARTBEACON_PROFILE_COUNT) {
+            Serial.printf("warn: smartBeaconSetting %u out of range, clamping to 0\n", index);
+            index = 0;
+        }
         if (smartBeaconSettingsIndex != index) {
             currentSmartBeaconValues = smartBeaconSettings[index];
             smartBeaconSettingsIndex = index;
         }
+    }
+
+    void setCustomValues(const SmartBeaconValues& v) {
+        smartBeaconSettings[SMARTBEACON_CUSTOM_INDEX] = v;
+        if (smartBeaconSettingsIndex == SMARTBEACON_CUSTOM_INDEX) {
+            smartBeaconSettingsIndex = 255;             // force re-copy on next checkSettings
+            checkSettings(SMARTBEACON_CUSTOM_INDEX);
+        }
+    }
+
+    const char* profileLabel(byte index) {
+        if (index >= SMARTBEACON_PROFILE_COUNT) return "?";
+        return SMARTBEACON_PROFILE_LABELS[index];
     }
 
     void checkInterval(int speed) {

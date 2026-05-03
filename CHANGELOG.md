@@ -9,6 +9,29 @@ Newest entries first. Format: `YYYY-MM-DD — short title (commit)` followed by 
 
 ---
 
+## 2026-05-02 — Add user-configurable SmartBeacon profile (index 3 = Custom)
+
+A 4th SmartBeacon profile is now editable at runtime via the serial CLI, so
+event-specific cadence/turn settings can be dialed in without recompiling.
+
+- [include/smartbeacon_utils.h](include/smartbeacon_utils.h),
+  [src/smartbeacon_utils.cpp](src/smartbeacon_utils.cpp) — array grows from 3
+  to 4 (Runner / Bike / Car / **Custom**); `checkSettings()` clamps
+  out-of-range values to 0 with a warning instead of crashing; new
+  `setCustomValues()` and `profileLabel()` helpers.
+- [include/configuration.h](include/configuration.h),
+  [src/configuration.cpp](src/configuration.cpp) — new `customSmartBeacon`
+  object in `tracker_conf.json` (8 fields: `slowRate`, `slowSpeed`,
+  `fastRate`, `fastSpeed`, `minTxDist`, `minDeltaBeacon`, `turnMinDeg`,
+  `turnSlope`). Missing keys auto-rewrite on first boot.
+- [src/serial_setup.cpp](src/serial_setup.cpp) — new `smartcustom` command
+  group (`show`, `slowrate`, `slowspeed`, `fastrate`, `fastspeed`,
+  `mintxdist`, `mindelta`, `turnmindeg`, `turnslope`); changes take effect
+  live (no save+reboot required to retune). `beacon smartset` now validates
+  `0..3` and rejects out-of-range values; `show beacons` annotates the
+  profile name (Runner/Bike/Car/Custom). Full reference:
+  [SERIAL_SETUP.md](SERIAL_SETUP.md).
+
 ## 2026-05-02 — Add `import` / `export` commands to serial setup CLI ([`d56d83b`](../../commit/d56d83b))
 
 [src/serial_setup.cpp](src/serial_setup.cpp) gains two top-level commands for
