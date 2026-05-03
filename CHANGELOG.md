@@ -9,6 +9,19 @@ Newest entries first. Format: `YYYY-MM-DD — short title (commit)` followed by 
 
 ---
 
+## 2026-05-03 — Enlarge Serial RX buffer so `import` paste survives LoRa stalls
+
+The default ESP32 Arduino `Serial` RX buffer is 256 bytes — about 22 ms of
+115200-baud traffic. The main loop ([src/LoRa_APRS_Tracker.cpp](src/LoRa_APRS_Tracker.cpp))
+can stall longer than that during LoRa RX/TX, which silently dropped bytes
+during a multi-KB `import` paste in the serial setup CLI; with bytes lost,
+the brace-balance heuristic never fires and the import appears to hang.
+
+- [src/LoRa_APRS_Tracker.cpp](src/LoRa_APRS_Tracker.cpp) — `Serial.setRxBufferSize(16384)`
+  before `Serial.begin()`. Matches `SERIAL_Setup::PASTE_MAX_BYTES`, so any
+  legal import paste fits even if the loop hangs the entire transfer.
+  Costs 16 KB of the 327 KB heap (≈5 %).
+
 ## 2026-05-02 — Add APRS Object reports via per-beacon tactical callsign
 
 New per-beacon `tacticalCallsign` field. When set (≤9 chars), the tracker emits

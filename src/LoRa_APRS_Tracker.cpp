@@ -125,6 +125,7 @@ logging::Logger                     logger;
 extern bool gpsIsActive;
 
 void setup() {
+    Serial.setRxBufferSize(16384);   // matches SERIAL_Setup::PASTE_MAX_BYTES so any legal 'import' paste fits even if the main loop stalls during LoRa I/O
     Serial.begin(115200);
 
     #ifndef DEBUG
