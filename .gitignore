@@ -5,6 +5,7 @@
 .vscode/ipch
 .DS_Store
 /data_embed/*.gz
+/include/generated/
 installer/firmware
 installer/*.bin
 **/__pycache__/

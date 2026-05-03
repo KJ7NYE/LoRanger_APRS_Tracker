@@ -23,6 +23,9 @@
 // custom include paths added via -I in build_flags.
 #include <Adafruit_LittleFS.h>
 #include <InternalFileSystem.h>
+// First-boot defaults are sourced from data/tracker_conf.json via the
+// tools/embed_config.py pre-build script, which emits this header.
+#include "generated/default_config_embed.h"
 #endif
 #include <SPIFFS.h>
 #include "configuration.h"
@@ -481,9 +484,26 @@ Configuration::Configuration() {
     Serial.println("SPIFFS Ready");
 
     if (!SPIFFS.exists("/tracker_conf.json")) {
-        Serial.println("Config not found, creating default...");
-        setDefaultValues();
-        writeFile();
+        #ifdef ARDUINO_ARCH_NRF52
+            // nRF52 has no PlatformIO `uploadfs` equivalent for InternalFS, so
+            // first-boot writes the embedded JSON (generated from data/tracker_conf.json
+            // by tools/embed_config.py) directly to LittleFS, then reboots so the
+            // normal readFile() path picks it up.
+            Serial.println("Config not found, writing embedded default JSON...");
+            File f = SPIFFS.open("/tracker_conf.json", "w");
+            if (f) {
+                f.write((const uint8_t*)DEFAULT_CONFIG_JSON, strlen(DEFAULT_CONFIG_JSON));
+                f.close();
+            } else {
+                Serial.println("Embedded default write failed; falling back to setDefaultValues()");
+                setDefaultValues();
+                writeFile();
+            }
+        #else
+            Serial.println("Config not found, creating default...");
+            setDefaultValues();
+            writeFile();
+        #endif
         delay(500);
         #ifdef ARDUINO_ARCH_NRF52
             NVIC_SystemReset();
