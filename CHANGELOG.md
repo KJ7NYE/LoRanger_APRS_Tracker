@@ -9,6 +9,48 @@ Newest entries first. Format: `YYYY-MM-DD — short title (commit)` followed by 
 
 ---
 
+## 2026-05-03 — Add nRF52 platform layer + Heltec T114 variant (PR-1)
+
+First nRF52840 board lands in the same repo as the ESP32 fleet — Heltec T114
+(off-the-shelf nRF52840 + SX1262 + L76K GPS + ST7789 1.14" 240×135 TFT).
+Future nRF boards (`LoRanger_V1_nRF`, RAK4631, etc.) become 2-file variant
+additions on top of this layer. See [NRF52_PORT_NOTES.md](NRF52_PORT_NOTES.md)
+for the design rationale and notes for future maintainers.
+
+Five logical steps, six commits:
+
+- **`9e64f69` — Steps 1+2** (capability flags + nRF platform): introduce
+  `HAS_WIFI` / `HAS_NIMBLE` / `HAS_WEB_UI` / `HAS_DISPLAY` in
+  [common_settings.ini](common_settings.ini) to gate ESP-only subsystems
+  behind `#ifdef`; add `[nrf52_common]` block,
+  [variants/heltec_t114/](variants/heltec_t114/), and
+  [include/nrf52_shims/](include/nrf52_shims/) headers that intercept
+  `<SPIFFS.h>` / `<logger.h>` on nRF builds; wire `#ifdef ARDUINO_ARCH_NRF52`
+  arms across 12 source files (SPIFFS↔InternalFS, `ESP.restart()`↔
+  `NVIC_SystemReset()`, `Wire/SPI.begin` no-args, `ledc` PWM→`tone()`,
+  `gpsSerial`→`Serial1`, `esp_sleep_*`→`SYSTEMOFF`, etc).
+- **`ba83b1f` — Step 3**: ST7789 driver path in [src/display.cpp](src/display.cpp)
+  behind `HAS_TFT_ST7789` — software SPI on dedicated TFT pins,
+  Adafruit_GFX-based, text-only rendering.
+- **`247161e` — Step 4**: first-boot embedded defaults. New
+  [tools/embed_config.py](tools/embed_config.py) pre-build script reads
+  [data/tracker_conf.json](data/tracker_conf.json) and emits a generated
+  C-string header that [src/configuration.cpp](src/configuration.cpp) writes
+  straight to LittleFS on first boot. ESP32 first-boot path unchanged.
+- **`15c1a75` — Step 5**: FCC TX-gate at [src/lora_utils.cpp](src/lora_utils.cpp)
+  `sendNewPacket` chokepoint using the existing `APRSPacketLib::checkNocall()`
+  validator on the packet's source-callsign field. Active on **both** platforms —
+  every TX path (beacon, status, message, telemetry, digipeat, BLE/BT-Classic
+  KISS injection) funnels through this single function.
+- **`552ae38` — T114 hardware glue**: drive `VEXT_ENABLE` (P0.21) HIGH for
+  L76K GPS power; gate battery ADC reads with `ADC_CTRL_PIN` (P0.6) HIGH
+  before sample, LOW after.
+
+`heltec_t114` build: flash 40.9 % (333 KB / 815 usable), RAM 32.3 %
+(80 KB / 248 usable). UF2-flashable `firmware.zip` produced in
+`.pio/build/heltec_t114/`. ESP32 envs unchanged from baseline
+(`heltec_wireless_tracker` measured at 46.9 % flash / 17.3 % RAM throughout).
+
 ## 2026-05-03 — Enlarge Serial RX buffer so `import` paste survives LoRa stalls
 
 The default ESP32 Arduino `Serial` RX buffer is 256 bytes — about 22 ms of
