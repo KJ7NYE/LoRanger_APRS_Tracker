@@ -16,6 +16,7 @@
  * along with LoRa APRS Tracker. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <APRSPacketLib.h>
 #include <RadioLib.h>
 #include <logger.h>
 #include <SPI.h>
@@ -195,6 +196,21 @@ namespace LoRa_Utils {
         /*logger.log(logging::LoggerLevel::LOGGER_LEVEL_WARN, "LoRa","Send data: %s", newPacket.c_str());
         logger.log(logging::LoggerLevel::LOGGER_LEVEL_ERROR, "LoRa","Send data: %s", newPacket.c_str());
         logger.log(logging::LoggerLevel::LOGGER_LEVEL_DEBUG, "LoRa","Send data: %s", newPacket.c_str());*/
+
+        // FCC TX-gate: refuse to key the carrier if the source callsign field
+        // looks like a placeholder (NOCALL / N0CALL). Catches misconfigured
+        // local beacons and any externally-injected packets via BLE/BT-Classic
+        // KISS paths. Load-bearing now that nRF52 first-boot writes a default
+        // config including NOCALL-7 — without this gate, a fresh device would
+        // TX before the operator can configure a real callsign.
+        int sepPos = newPacket.indexOf('>');
+        String fromCall = (sepPos > 0) ? newPacket.substring(0, sepPos) : newPacket;
+        if (APRSPacketLib::checkNocall(fromCall)) {
+            logger.log(logging::LoggerLevel::LOGGER_LEVEL_ERROR, "LoRa Tx",
+                       "TX BLOCKED: source callsign \"%s\" is a placeholder; configure a valid callsign before transmitting",
+                       fromCall.c_str());
+            return;
+        }
 
         if (Config.ptt.active) {
             digitalWrite(Config.ptt.io_pin, Config.ptt.reverse ? LOW : HIGH);
