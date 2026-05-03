@@ -32,10 +32,11 @@
 #define GPS_STANDBY_PIN         (32 + 2)
 
 // ---- Display: ST7789 1.14" 240x135 TFT (built-in) ---------------------------
-// Driver/glue not yet wired up — leave HAS_DISPLAY undefined for now so
-// display.cpp compiles to no-op stubs. Re-enable when the ST7789 path lands.
-// #define HAS_DISPLAY
-// #define HAS_TFT_ST7789
+// Software-SPI driver path lives in display.cpp behind HAS_TFT_ST7789.
+// Hardware SPI would require a second SPIM peripheral instance because the
+// LoRa SPI bus owns the default SPI on different pins.
+#define HAS_DISPLAY
+#define HAS_TFT_ST7789
 #define TFT_CS_PIN              11
 #define TFT_DC_PIN              12
 #define TFT_RST_PIN             2

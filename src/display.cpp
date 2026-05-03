@@ -38,7 +38,113 @@ void displayShow(const String&, const String&, const String&, const String&,
                  const String&, const String&, int) {}
 void startupScreen(uint8_t, const String&) {}
 
-#else
+#else  // HAS_DISPLAY is defined
+
+#ifdef HAS_TFT_ST7789
+
+// Standalone nRF52 + ST7789 path. Used by Heltec T114 (software SPI on
+// dedicated TFT pins; the LoRa SX1262 owns the default SPI bus on different
+// pins). Self-contained — implements the 5 public functions in display.h
+// using Adafruit_ST7789 + Adafruit_GFX. Does NOT share globals or render
+// helpers with the legacy TFT_eSPI / SSD1306 paths below the #else.
+
+#include <Adafruit_GFX.h>
+#include <Adafruit_ST7789.h>
+#include <SPI.h>
+#include "display.h"
+
+// Software SPI constructor — pins are bit-banged. Software SPI is slow but
+// sidesteps the second-SPI-peripheral coordination needed for hardware SPI
+// on a TFT bus separate from the LoRa bus. Acceptable for text-only updates.
+static Adafruit_ST7789 tft(TFT_CS_PIN, TFT_DC_PIN, TFT_MOSI_PIN,
+                           TFT_SCLK_PIN, TFT_RST_PIN);
+
+// Globals also referenced from other TUs (keyboard/menu/station_utils).
+uint8_t     screenBrightness    = 255;
+bool        symbolAvailable     = true;
+
+namespace {
+    constexpr uint16_t COLOR_BG     = 0x0000;   // black
+    constexpr uint16_t COLOR_HEADER = 0xFFE0;   // yellow
+    constexpr uint16_t COLOR_BODY   = 0xFFFF;   // white
+    constexpr uint16_t COLOR_BANNER = 0x07E0;   // green
+    constexpr int      HEADER_Y     = 0;
+    constexpr int      BODY_Y       = 24;       // below 16 px size-2 header + padding
+    constexpr int      LINE_HEIGHT  = 14;       // size-1 char height + spacing
+
+    void drawScreen(const String& header, const String* lines, int nLines) {
+        tft.fillScreen(COLOR_BG);
+        tft.setCursor(0, HEADER_Y);
+        tft.setTextSize(2);
+        tft.setTextColor(COLOR_HEADER, COLOR_BG);
+        tft.println(header);
+        tft.setTextSize(1);
+        tft.setTextColor(COLOR_BODY, COLOR_BG);
+        int y = BODY_Y;
+        for (int i = 0; i < nLines; i++) {
+            tft.setCursor(0, y);
+            tft.println(lines[i]);
+            y += LINE_HEIGHT;
+        }
+    }
+}
+
+void displaySetup() {
+    pinMode(TFT_BL_PIN, OUTPUT);
+    digitalWrite(TFT_BL_PIN, HIGH);
+    tft.init(135, 240);             // native portrait 135x240
+    tft.setRotation(1);             // landscape -> 240x135
+    tft.fillScreen(COLOR_BG);
+    tft.setTextWrap(false);
+}
+
+void displayToggle(bool toggle) {
+    digitalWrite(TFT_BL_PIN, toggle ? HIGH : LOW);
+}
+
+void displayShow(const String& header, const String& line1,
+                 const String& line2, int wait) {
+    const String lines[] = { line1, line2 };
+    drawScreen(header, lines, 2);
+    if (wait > 0) delay(wait);
+}
+
+void displayShow(const String& header, const String& line1,
+                 const String& line2, const String& line3,
+                 const String& line4, const String& line5, int wait) {
+    const String lines[] = { line1, line2, line3, line4, line5 };
+    drawScreen(header, lines, 5);
+    if (wait > 0) delay(wait);
+}
+
+void startupScreen(uint8_t index, const String& version) {
+    String workingFreq = "LoRa Freq [";
+    switch (index) {
+        case 0: workingFreq += "EU]"; break;
+        case 1: workingFreq += "PL]"; break;
+        case 2: workingFreq += "UK]"; break;
+        case 3: workingFreq += "US]"; break;
+        default: workingFreq += "??]"; break;
+    }
+    tft.fillScreen(COLOR_BG);
+    tft.setTextSize(2);
+    tft.setTextColor(COLOR_BANNER, COLOR_BG);
+    tft.setCursor(0, 0);
+    tft.println("LoRanger");
+    tft.setTextSize(1);
+    tft.setTextColor(COLOR_BODY, COLOR_BG);
+    tft.setCursor(0, 24);
+    tft.println("APRS Tracker");
+    tft.setCursor(0, 38);
+    tft.println("v " + version);
+    tft.setCursor(0, 56);
+    tft.println(workingFreq);
+    tft.setCursor(0, 74);
+    tft.println("Booting...");
+    delay(1500);
+}
+
+#else  // !HAS_TFT_ST7789 — existing TFT_eSPI / SSD1306 paths
 
 #include <logger.h>
 #include <Wire.h>
@@ -594,5 +700,7 @@ String fillMessageLine(const String& line, const int& length) {
     }
     return completeLine;
 }
+
+#endif // !HAS_TFT_ST7789
 
 #endif // HAS_DISPLAY
