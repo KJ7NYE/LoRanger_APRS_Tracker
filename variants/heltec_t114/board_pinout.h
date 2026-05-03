@@ -2,11 +2,11 @@
  * Heltec Mesh Node T114 (nRF52840) board pinout.
  *
  * Pin numbers cross-checked against meshtastic's variant.h for this board.
- * nRF52840 port encoding: P0.x = x, P1.x = 32 + x.
+ * nRF52840 port encoding: P0.x = 0 + x, P1.x = 32 + x.
  *
  * Capability flags deliberately NOT set on this variant (no WiFi/BT-Classic/
- * NimBLE/Web UI on nRF52). HAS_DISPLAY is also unset until the ST7789 driver
- * path lands — board boots headless to USB serial during bring-up.
+ * NimBLE/Web UI on nRF52). HAS_DISPLAY + HAS_TFT_ST7789 are set below to
+ * route display.cpp into the ST7789 software-SPI driver path.
  */
 #ifndef BOARD_PINOUT_H_
 #define BOARD_PINOUT_H_

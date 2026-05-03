@@ -79,7 +79,9 @@ namespace GPS_Utils {
             digitalWrite(GPS_VCC, LOW);
             delay(200);
         #endif
-        #if defined(F4GOH_1W_LoRa_Tracker) || defined(F4GOH_1W_LoRa_Tracker_LLCC68)
+        #if defined(F4GOH_1W_LoRa_Tracker) || defined(F4GOH_1W_LoRa_Tracker_LLCC68) || defined(HELTEC_T114)
+            // T114: VEXT_ENABLE (P0.21) gates the L76K GPS power rail; must be
+            // HIGH before any UART activity or the GPS reports nothing.
             pinMode(GPS_VCC, OUTPUT);
             digitalWrite(GPS_VCC, HIGH);
             delay(200);

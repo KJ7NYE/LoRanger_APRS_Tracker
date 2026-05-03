@@ -64,6 +64,15 @@ namespace BATTERY_Utils {
             return (PMU.getBattVoltage() / 1000.0);
         #else
             #ifdef BATTERY_PIN
+                #ifdef ADC_CTRL_PIN
+                    // T114-style boards: a discrete FET gates the battery
+                    // divider so it doesn't bleed current continuously.
+                    // Drive ADC_CTRL_PIN to the enable level only while
+                    // sampling, then back off.
+                    pinMode(ADC_CTRL_PIN, OUTPUT);
+                    digitalWrite(ADC_CTRL_PIN, ADC_CTRL_ENABLED);
+                    delay(2);
+                #endif
                 int sampleSum = 0;
                 analogRead(BATTERY_PIN);    // Dummy Read
                 delay(1);
@@ -72,6 +81,9 @@ namespace BATTERY_Utils {
                     delay(3);
                 }
                 int adc_value = sampleSum/averageReadings;
+                #ifdef ADC_CTRL_PIN
+                    digitalWrite(ADC_CTRL_PIN, !ADC_CTRL_ENABLED);
+                #endif
                 double voltage = (adc_value * 3.3 ) / 4095.0;
 
                 #ifdef LIGHTTRACKER_PLUS_1_0
