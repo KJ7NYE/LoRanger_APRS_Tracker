@@ -9,6 +9,21 @@ Newest entries first. Format: `YYYY-MM-DD — short title (commit)` followed by 
 
 ---
 
+## 2026-05-02 — Add `import` / `export` commands to serial setup CLI ([`d56d83b`](../../commit/d56d83b))
+
+[src/serial_setup.cpp](src/serial_setup.cpp) gains two top-level commands for
+JSON-level config replication without WiFi or external tooling:
+
+- **`export`** — streams the on-disk `tracker_conf.json` to the terminal between
+  `---- BEGIN ----` / `---- END ----` markers.
+- **`import`** — accepts a pasted full JSON, auto-detects end of paste via
+  string-aware brace balancing, validates (parse + non-empty
+  `beacons[0].callsign`), writes to SPIFFS, and reboots. 16 KB buffer cap;
+  Ctrl-C aborts cleanly. Refuses to start if there are unsaved CLI edits.
+
+Also: the unused `boolStr` helper was removed to silence a `-Wunused-function`
+warning. Full reference: [SERIAL_SETUP.md](SERIAL_SETUP.md).
+
 ## 2026-05-02 — `tracker_conf` standard settings for event support ([`032df10`](../../commit/032df10))
 
 Updated the default [data/tracker_conf.json](data/tracker_conf.json) to event-friendly defaults:
@@ -72,7 +87,7 @@ Initial fork commit. Adds the LoRanger V1 hardware variant — custom ESP32-S3
 When you add a fork commit, prepend a new section above using:
 
 ```
-## YYYY-MM-DD — Short title ([`<short-hash>`](../../commit/<short-hash>))
+## YYYY-MM-DD — Short title ([`d56d83b`](../../commit/d56d83b))
 
 One- or two-paragraph description: what changed, which files, and why.
 ```
