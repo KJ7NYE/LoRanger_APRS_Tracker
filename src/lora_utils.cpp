@@ -116,7 +116,11 @@ namespace LoRa_Utils {
         #if defined(LIGHTTRACKER_PLUS_1_0) || defined(LORANGER_V1)
             loraSPI.begin(RADIO_SCLK_PIN, RADIO_MISO_PIN, RADIO_MOSI_PIN, RADIO_CS_PIN);
         #else
-            SPI.begin(RADIO_SCLK_PIN, RADIO_MISO_PIN, RADIO_MOSI_PIN);
+            #ifdef ARDUINO_ARCH_NRF52
+                SPI.begin();   // Adafruit nRF52 BSP's SPI.begin() takes no args; pins are fixed by the BSP variant
+            #else
+                SPI.begin(RADIO_SCLK_PIN, RADIO_MISO_PIN, RADIO_MOSI_PIN);
+            #endif
         #endif
         float freq = (float)currentLoRaType->frequency/1000000;
         #if defined(RADIO_HAS_XTAL)
@@ -254,7 +258,7 @@ namespace LoRa_Utils {
             } else {
                 int state = radio.readData(packet);
                 if (state == RADIOLIB_ERR_NONE) {
-                    if(!packet.isEmpty()) {
+                    if(packet.length() != 0) {
                         logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "LoRa Rx","---> %s", packet.substring(3).c_str());
                         receivedLoraPacket.text       = packet;
                         receivedLoraPacket.rssi       = radio.getRSSI();

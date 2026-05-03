@@ -54,7 +54,7 @@ namespace KISS_Utils {
 
     String decapsulateKISS(const String& frame) {
         String ax25Frame = "";
-        for (int i = 2; i < frame.length() - 1; ++i) {
+        for (size_t i = 2; i + 1 < frame.length(); ++i) {
             char currentChar = frame.charAt(i);
             if (currentChar == (char)KissChar::FESC) {
                 char nextChar = frame.charAt(i + 1);
@@ -76,7 +76,7 @@ namespace KISS_Utils {
         kissFrame += (char)KissChar::FEND;
         kissFrame += (char)(0x0f & command);
 
-        for (int i = 0; i < ax25Frame.length(); ++i) {
+        for (size_t i = 0; i < ax25Frame.length(); ++i) {
             char currentChar = ax25Frame.charAt(i);
             if (currentChar == (char)KissChar::FEND) {
                 kissFrame += (char)KissChar::FESC;
@@ -104,7 +104,7 @@ namespace KISS_Utils {
         String kissAddress  = "";
         for (int i = 0; i < 6; ++i) {
             char addressChar = ' ';
-            if (address.length() > i && i < separatorIndex) addressChar = address.charAt(i);
+            if (address.length() > (unsigned)i && i < separatorIndex) addressChar = address.charAt(i);
             kissAddress += (char)(addressChar << 1);
         }
         kissAddress += (char)((ssid << 1) | 0b01100000 | (hasBeenDigipited ? HAS_BEEN_DIGIPITED_MASK : 0));
@@ -124,7 +124,7 @@ namespace KISS_Utils {
                 frame = srcAddr + ">" + dstAddr;
 
                 int digiInfoIndex = 14;
-                while (!isLastAddress && digiInfoIndex + 7 < ax25Frame.length()) {
+                while (!isLastAddress && (size_t)(digiInfoIndex + 7) < ax25Frame.length()) {
                     String digiAddr = decodeAddressAX25(ax25Frame.substring(digiInfoIndex, digiInfoIndex + 7), isLastAddress, true);
                     frame += ',' + digiAddr;
                     digiInfoIndex += 7;

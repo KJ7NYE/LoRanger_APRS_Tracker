@@ -59,8 +59,11 @@ namespace WINLINK_Utils {
         if (lastChallengeTime == 0 || (currenTime - lastChallengeTime) > 10 * 60 * 1000) {
             challengeAnswer = "";
 
-            // Generate the challenge answer based on the provided integer and the password
-            for (char c : winlinkInteger) {
+            // Generate the challenge answer based on the provided integer and the password.
+            // Use index-based loop instead of range-for: Adafruit nRF52's String lacks
+            // begin()/end() methods that range-for needs.
+            for (size_t ci = 0; ci < winlinkInteger.length(); ci++) {
+                char c = winlinkInteger.charAt(ci);
                 int digit = c - '0';                                            // Convert '0'-'9' to 0-9
                 if (digit < 1 || digit > Config.winlink.password.length()) {    // Ensure valid range
                     displayShow(" WINLINK", "", "PASS Length<REQUIRED", "", "", "", 2000);

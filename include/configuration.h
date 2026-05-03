@@ -21,7 +21,9 @@
 
 #include <Arduino.h>
 #include <vector>
-#include <FS.h>
+#ifndef ARDUINO_ARCH_NRF52
+#include <FS.h>          // header is unused in this declaration; kept ESP32-side for upstream-merge friendliness
+#endif
 #include "smartbeacon_utils.h"
 
 

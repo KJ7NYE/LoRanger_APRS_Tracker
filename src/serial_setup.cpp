@@ -179,7 +179,7 @@ namespace SERIAL_Setup {
     static void kv(const char* key, const char* value)  { kv(key, String(value)); }
     static void kv(const char* key, int value)          { kv(key, String(value)); }
     static void kv(const char* key, long value)         { kv(key, String(value)); }
-    static void kv(const char* key, unsigned value)     { kv(key, String(value)); }
+    __attribute__((unused)) static void kv(const char* key, unsigned value) { kv(key, String(value)); }
     static void kv(const char* key, float value)        { kv(key, String(value, 2)); }
     static void kv(const char* key, bool value)         { kv(key, value ? "on" : "off"); }
 
@@ -709,7 +709,11 @@ namespace SERIAL_Setup {
         Serial.print((unsigned)written);
         Serial.println(F(" bytes). Rebooting to apply..."));
         delay(300);
-        ESP.restart();
+        #ifdef ARDUINO_ARCH_NRF52
+            NVIC_SystemReset();
+        #else
+            ESP.restart();
+        #endif
     }
 
     // top-of-loop hook: route a single byte into paste-mode buffer when active.
@@ -783,10 +787,21 @@ namespace SERIAL_Setup {
             if (!dirty) { okClean("nothing to discard"); doExit(true); return; }
             Serial.println(F("Discarding unsaved changes -- rebooting to reload config..."));
             delay(200);
-            ESP.restart();
+            #ifdef ARDUINO_ARCH_NRF52
+                NVIC_SystemReset();
+            #else
+                ESP.restart();
+            #endif
         }
         else if (cmd == "exit" || cmd == "quit")    doExit(false);
-        else if (cmd == "reboot")                   { Serial.println(F("Rebooting...")); delay(200); ESP.restart(); }
+        else if (cmd == "reboot")                   {
+            Serial.println(F("Rebooting...")); delay(200);
+            #ifdef ARDUINO_ARCH_NRF52
+                NVIC_SystemReset();
+            #else
+                ESP.restart();
+            #endif
+        }
         else if (cmd == "log")                      cmdLog(tk, n);
         else if (cmd == "beacon")                   cmdBeacon(tk, n, line);
         else if (cmd == "lora")                     cmdLora(tk, n, line);

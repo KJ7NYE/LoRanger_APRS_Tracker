@@ -17,6 +17,13 @@
  */
 
 #include <ArduinoJson.h>
+#ifdef ARDUINO_ARCH_NRF52
+// Direct includes here (in addition to via the SPIFFS shim) so PIO's LDF
+// discovers the dependency from a tracked project source — LDF does NOT crawl
+// custom include paths added via -I in build_flags.
+#include <Adafruit_LittleFS.h>
+#include <InternalFileSystem.h>
+#endif
 #include <SPIFFS.h>
 #include "configuration.h"
 #include "board_pinout.h"
@@ -37,7 +44,11 @@ bool Configuration::writeFile() {
         Serial.println("Error: Could not open config file for writing");
         return false;
     }
+    #ifndef ARDUINO_ARCH_NRF52
     try {
+    #else
+    {   // Adafruit nRF52 BSP is built without exceptions; equivalent unwound block.
+    #endif
 
         data["wifiAP"]["active"]                    = wifiAP.active;
         data["wifiAP"]["bootWindow"]                = wifiAP.bootWindow;
@@ -138,10 +149,12 @@ bool Configuration::writeFile() {
         serializeJson(data, configFile);
         configFile.close();
         return true;
+    #ifndef ARDUINO_ARCH_NRF52
     } catch (...) {
         Serial.println("Error: Exception occurred while saving config");
         configFile.close();
         return false;
+    #endif
     }
 }
 
@@ -207,7 +220,7 @@ bool Configuration::readFile() {
         #endif
 
         JsonArray LoraTypesArray = data["lora"];
-        for (int j = 0; j < LoraTypesArray.size(); j++) {
+        for (size_t j = 0; j < LoraTypesArray.size(); j++) {
             LoraType loraType;
 
             loraType.frequency          = LoraTypesArray[j]["frequency"] | 433775000;
@@ -326,7 +339,11 @@ bool Configuration::readFile() {
             Serial.println("Config JSON incomplete, rewriting...");
             writeFile();
             delay(1000);
-            ESP.restart();
+            #ifdef ARDUINO_ARCH_NRF52
+                NVIC_SystemReset();
+            #else
+                ESP.restart();
+            #endif
         }
         Serial.println("Config read successfuly");
         return true;
@@ -468,7 +485,11 @@ Configuration::Configuration() {
         setDefaultValues();
         writeFile();
         delay(500);
-        ESP.restart();
+        #ifdef ARDUINO_ARCH_NRF52
+            NVIC_SystemReset();
+        #else
+            ESP.restart();
+        #endif
     }
 
     readFile();

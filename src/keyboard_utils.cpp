@@ -552,7 +552,11 @@ namespace KEYBOARD_Utils {
             displayShow("", "", "  STARTING WiFi AP", 2000);
             Config.wifiAP.active = true;
             Config.writeFile();
-            ESP.restart();
+            #ifdef ARDUINO_ARCH_NRF52
+                NVIC_SystemReset();
+            #else
+                ESP.restart();
+            #endif
         }
     }
 
@@ -620,7 +624,11 @@ namespace KEYBOARD_Utils {
             }
         } else if (menuDisplay == 260 && key == 13) {
             displayShow("", "", "    REBOOTING ...", 2000);
-            ESP.restart();
+            #ifdef ARDUINO_ARCH_NRF52
+                NVIC_SystemReset();
+            #else
+                ESP.restart();
+            #endif
         } else if (menuDisplay == 270 && key == 13) {
             #if defined(HAS_AXP192) || defined(HAS_AXP2101)
                 displayShow("", "", "    POWER OFF ...", 2000);

@@ -23,7 +23,9 @@
 #include "board_pinout.h"
 #include "power_utils.h"
 #include "lora_utils.h"
+#ifdef HAS_NIMBLE
 #include "ble_utils.h"
+#endif
 #include "gps_utils.h"
 #include "display.h"
 #include "logger.h"
@@ -353,7 +355,11 @@ namespace POWER_Utils {
                 Wire.begin(I2C0_SDA, I2C0_SCL);
                 if (begin(Wire1)) beginStatus = true;
             #else
-                Wire.begin(SDA, SCL);
+                #ifdef ARDUINO_ARCH_NRF52
+                    Wire.begin();
+                #else
+                    Wire.begin(SDA, SCL);
+                #endif
                 if (begin(Wire)) beginStatus = true;
             #endif
             if (beginStatus) {
@@ -419,11 +425,16 @@ namespace POWER_Utils {
     }
 
     void lowerCpuFrequency() {
-        if (setCpuFrequencyMhz(80)) {
-            logger.log(logging::LoggerLevel::LOGGER_LEVEL_DEBUG, "Main", "CPU frequency set to 80MHz");
-        } else {
-            logger.log(logging::LoggerLevel::LOGGER_LEVEL_WARN, "Main", "CPU frequency unchanged");
-        }
+        #ifdef ARDUINO_ARCH_NRF52
+            // nRF52840 runs at a fixed 64 MHz; no DVFS API. Skip.
+            logger.log(logging::LoggerLevel::LOGGER_LEVEL_DEBUG, "Main", "CPU frequency scaling not supported on nRF52");
+        #else
+            if (setCpuFrequencyMhz(80)) {
+                logger.log(logging::LoggerLevel::LOGGER_LEVEL_DEBUG, "Main", "CPU frequency set to 80MHz");
+            } else {
+                logger.log(logging::LoggerLevel::LOGGER_LEVEL_WARN, "Main", "CPU frequency unchanged");
+            }
+        #endif
     }
 
     void shutdown() {
@@ -434,11 +445,13 @@ namespace POWER_Utils {
             displayToggle(false);
             PMU.shutdown();
         #else
-            if (Config.bluetooth.active && Config.bluetooth.useBLE) {
-                BLE_Utils::stop();
-            } /*else {
-                // turn off BT classic ???
-            }*/
+            #ifdef HAS_NIMBLE
+                if (Config.bluetooth.active && Config.bluetooth.useBLE) {
+                    BLE_Utils::stop();
+                } /*else {
+                    // turn off BT classic ???
+                }*/
+            #endif
 
             #ifdef VEXT_CTRL
                 vext_ctrl_OFF();
@@ -459,9 +472,15 @@ namespace POWER_Utils {
             LoRa_Utils::sleepRadio();
 
             long DEEP_SLEEP_TIME_SEC = 1296000; // 15 days
-            esp_sleep_enable_timer_wakeup(1000000ULL * DEEP_SLEEP_TIME_SEC);
             delay(500);
-            esp_deep_sleep_start();
+            #ifdef ARDUINO_ARCH_NRF52
+                (void)DEEP_SLEEP_TIME_SEC;
+                NRF_POWER->SYSTEMOFF = 1;   // wakes only on reset/button (no RTC wakeup wired up yet)
+                while (1) { __WFE(); }
+            #else
+                esp_sleep_enable_timer_wakeup(1000000ULL * DEEP_SLEEP_TIME_SEC);
+                esp_deep_sleep_start();
+            #endif
         #endif
     }
 

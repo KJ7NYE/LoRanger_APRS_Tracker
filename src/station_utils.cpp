@@ -27,7 +27,9 @@
 #include "power_utils.h"
 #include "sleep_utils.h"
 #include "lora_utils.h"
+#ifdef HAS_NIMBLE
 #include "ble_utils.h"
+#endif
 #include "wx_utils.h"
 #include "display.h"
 #include "logger.h"
@@ -100,7 +102,7 @@ namespace STATION_Utils {
 
     void deleteListenedStationsByTime() {
         for (int a = 0; a < nearbyStationsSize; a++) {                       // clean nearbyStations[] after time
-            if (nearbyStations[a].callsign != "" && (millis() - nearbyStations[a].lastTime > Config.rememberStationTime * 60 * 1000)) {
+            if (nearbyStations[a].callsign != "" && (millis() - nearbyStations[a].lastTime > (uint32_t)(Config.rememberStationTime * 60 * 1000))) {
                 nearbyStations[a].callsign    = "";
                 nearbyStations[a].distance    = 0.0;
                 nearbyStations[a].course      = 0;
@@ -121,7 +123,7 @@ namespace STATION_Utils {
     }
 
     void checkListenedStationsByTimeAndDelete() {
-        if (millis() - lastDeleteListenedStation > Config.rememberStationTime * 60 * 1000) deleteListenedStationsByTime();
+        if (millis() - lastDeleteListenedStation > (uint32_t)(Config.rememberStationTime * 60 * 1000)) deleteListenedStationsByTime();
     }
 
     void orderListenedStationsByDistance(const String& callsign, float distance, float course) {
@@ -182,7 +184,7 @@ namespace STATION_Utils {
     }
 
     void checkStandingUpdateTime() {
-        if (!sendUpdate && lastTx >= Config.standingUpdateTime * 60 * 1000) {
+        if (!sendUpdate && lastTx >= (uint32_t)(Config.standingUpdateTime * 60 * 1000)) {
             sendUpdate = true;
             sendStandingUpdate = true;
             if (!gpsIsActive) {
@@ -259,7 +261,9 @@ namespace STATION_Utils {
         displayShow("<<< TX >>>", "", packet, 100);
         LoRa_Utils::sendNewPacket(packet);
 
-        if (Config.bluetooth.useBLE) BLE_Utils::sendToPhone(packet);   // send Tx packets to Phone too
+        #ifdef HAS_NIMBLE
+            if (Config.bluetooth.useBLE) BLE_Utils::sendToPhone(packet);   // send Tx packets to Phone too
+        #endif
 
         if (shouldSleepLowVoltage) POWER_Utils::shutdown();
 

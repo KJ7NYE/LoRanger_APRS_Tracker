@@ -37,30 +37,42 @@
              (donations : http://paypal.me/richonguzman)
 ____________________________________________________________________*/
 
+#include "board_pinout.h"   // pulled to top so HAS_BT_CLASSIC is in scope before conditional library includes
+#ifdef HAS_BT_CLASSIC
 #include <BluetoothSerial.h>
+#endif
 #include <APRSPacketLib.h>
 #include <TinyGPS++.h>
 #include <Arduino.h>
 #include <logger.h>
+#ifdef HAS_WIFI
 #include <WiFi.h>
+#endif
 #include "smartbeacon_utils.h"
+#ifdef HAS_BT_CLASSIC
 #include "bluetooth_utils.h"
+#endif
 #include "keyboard_utils.h"
 #include "joystick_utils.h"
 #include "configuration.h"
 #include "battery_utils.h"
 #include "station_utils.h"
-#include "board_pinout.h"
 #include "button_utils.h"
 #include "power_utils.h"
 #include "sleep_utils.h"
 #include "menu_utils.h"
 #include "lora_utils.h"
+#ifdef HAS_WIFI
 #include "wifi_utils.h"
+#endif
 #include "msg_utils.h"
 #include "gps_utils.h"
+#ifdef HAS_WEB_UI
 #include "web_utils.h"
+#endif
+#ifdef HAS_NIMBLE
 #include "ble_utils.h"
+#endif
 #include "wx_utils.h"
 #include "display.h"
 #include "serial_setup.h"
@@ -73,7 +85,13 @@ ____________________________________________________________________*/
 String      versionDate             = "2026-05-03";
 String      versionNumber           = "2.4.3.2";
 Configuration                       Config;
-HardwareSerial                      gpsSerial(1);
+#ifdef ARDUINO_ARCH_NRF52
+    // Adafruit nRF52 BSP exposes Serial1 as a global Uart; alias it as gpsSerial.
+    // Pin assignment is fixed by the BSP variant (PIN_SERIAL1_RX/TX).
+    #define gpsSerial Serial1
+#else
+    HardwareSerial                  gpsSerial(1);
+#endif
 TinyGPSPlus                         gps;
 #ifdef HAS_BT_CLASSIC
     BluetoothSerial                 SerialBT;
@@ -125,7 +143,12 @@ logging::Logger                     logger;
 extern bool gpsIsActive;
 
 void setup() {
-    Serial.setRxBufferSize(16384);   // matches SERIAL_Setup::PASTE_MAX_BYTES so any legal 'import' paste fits even if the main loop stalls during LoRa I/O
+    #ifndef ARDUINO_ARCH_NRF52
+        // matches SERIAL_Setup::PASTE_MAX_BYTES so any legal 'import' paste fits
+        // even if the main loop stalls during LoRa I/O. nRF52's TinyUSB CDC has
+        // its own larger buffer (SERIAL_BUFFER_SIZE) set via build_flags.
+        Serial.setRxBufferSize(16384);
+    #endif
     Serial.begin(115200);
 
     #ifndef DEBUG
@@ -141,7 +164,9 @@ void setup() {
     STATION_Utils::nearStationInit();
     startupScreen(loraIndex, versionDate);
 
-    WIFI_Utils::checkIfWiFiAP();
+    #ifdef HAS_WIFI
+        WIFI_Utils::checkIfWiFiAP();
+    #endif
 
     MSG_Utils::loadNumMessages();
     GPS_Utils::setup();
@@ -150,12 +175,16 @@ void setup() {
     Utils::i2cScannerForPeripherals();
     WX_Utils::setup();
 
-    WiFi.mode(WIFI_OFF);
-    logger.log(logging::LoggerLevel::LOGGER_LEVEL_DEBUG, "Main", "WiFi controller stopped");
+    #ifdef HAS_WIFI
+        WiFi.mode(WIFI_OFF);
+        logger.log(logging::LoggerLevel::LOGGER_LEVEL_DEBUG, "Main", "WiFi controller stopped");
+    #endif
 
     if (bluetoothActive) {
         if (Config.bluetooth.useBLE) {
-            BLE_Utils::setup();
+            #ifdef HAS_NIMBLE
+                BLE_Utils::setup();
+            #endif
         } else {
             #ifdef HAS_BT_CLASSIC
                 BLUETOOTH_Utils::setup();
@@ -174,8 +203,12 @@ void setup() {
         TOUCH_Utils::setup();
     #endif
 
-    esp_random();
-    randomSeed(esp_random());
+    #ifdef ARDUINO_ARCH_NRF52
+        randomSeed(analogRead(BATTERY_PIN));
+    #else
+        esp_random();
+        randomSeed(esp_random());
+    #endif
 
     POWER_Utils::lowerCpuFrequency();
     logger.log(logging::LoggerLevel::LOGGER_LEVEL_DEBUG, "Main", "Smart Beacon is: %s", Utils::getSmartBeaconState());
@@ -222,8 +255,10 @@ void loop() {
 
     if (bluetoothActive && bluetoothConnected) {
         if (Config.bluetooth.useBLE) {
-            BLE_Utils::sendToPhone(packet.text.substring(3));
-            BLE_Utils::sendToLoRa();
+            #ifdef HAS_NIMBLE
+                BLE_Utils::sendToPhone(packet.text.substring(3));
+                BLE_Utils::sendToLoRa();
+            #endif
         } else {
             #ifdef HAS_BT_CLASSIC
                 BLUETOOTH_Utils::sendToPhone(packet.text.substring(3));

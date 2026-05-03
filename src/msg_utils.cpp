@@ -16,16 +16,20 @@
  * along with LoRa APRS Tracker. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "board_pinout.h"   // pulled ahead so HAS_BT_CLASSIC is in scope before conditional includes
 #include <APRSPacketLib.h>
 #include <TinyGPS++.h>
 #include <SPIFFS.h>
 #include "notification_utils.h"
+#ifdef HAS_BT_CLASSIC
 #include "bluetooth_utils.h"
+#endif
 #include "winlink_utils.h"
 #include "configuration.h"
-#include "board_pinout.h"
 #include "lora_utils.h"
+#ifdef HAS_NIMBLE
 #include "ble_utils.h"
+#endif
 #include "msg_utils.h"
 #include "gps_utils.h"
 #include "display.h"
@@ -148,7 +152,11 @@ namespace MSG_Utils {
     }
 
     void loadMessagesFromMemory(uint8_t typeOfMessage) {
-        File fileToRead;
+        #ifdef ARDUINO_ARCH_NRF52
+            File fileToRead(InternalFS);   // Adafruit_LittleFS::File has no default constructor
+        #else
+            File fileToRead;
+        #endif
         if (typeOfMessage == 0) {  // APRS
             noAPRSMsgWarning = false;
             if (numAPRSMessages == 0) {
@@ -406,7 +414,7 @@ namespace MSG_Utils {
     }
 
     void checkReceivedMessage(ReceivedLoRaPacket packet) {
-        if(packet.text.isEmpty()) {
+        if(packet.text.length() == 0) {
             return;
         }
         if (packet.text.substring(0,3) == "\x3c\xff\x01") {              // its an APRS packet

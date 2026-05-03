@@ -93,6 +93,12 @@ namespace BATTERY_Utils {
                     double inputDivider = (1.0 / (220.0 + 100.0)) * 100.0;  // The voltage divider is a 220k + 100k resistor in series, 100k on the low side.
                     return (voltage / inputDivider) + 0.285; // Yes, this offset is excessive, but the ADC on the ESP32 is quite inaccurate and noisy. Adjust to own measurements.
                 #endif
+                #ifdef HELTEC_T114
+                    // T114 hardware divider multiplier per meshtastic variant.h is 4.916.
+                    // ADC_CTRL_PIN gating (HIGH-before-read) not yet wired — readings will be
+                    // approximate until that lands. Tune via lora32BatReadingCorr config.
+                    return (voltage * 4.916F) * (1 + (lora32BatReadingCorr/100));
+                #endif
             #else
                 return 0.0;
             #endif

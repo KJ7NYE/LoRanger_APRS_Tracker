@@ -38,7 +38,12 @@
 
 
 extern Configuration        Config;
-extern HardwareSerial       gpsSerial;
+#ifdef ARDUINO_ARCH_NRF52
+    // Adafruit BSP's Serial1 is our GPS port — see LoRa_APRS_Tracker.cpp.
+    #define gpsSerial Serial1
+#else
+    extern HardwareSerial   gpsSerial;
+#endif
 extern TinyGPSPlus          gps;
 extern Beacon               *currentBeacon;
 extern logging::Logger      logger;
@@ -80,7 +85,11 @@ namespace GPS_Utils {
             delay(200);
         #endif
 
-        gpsSerial.begin(GPS_BAUD, SERIAL_8N1, GPS_TX, GPS_RX);
+        #ifdef ARDUINO_ARCH_NRF52
+            gpsSerial.begin(GPS_BAUD);
+        #else
+            gpsSerial.begin(GPS_BAUD, SERIAL_8N1, GPS_TX, GPS_RX);
+        #endif
     }
 
     void calculateDistanceCourse(const String& callsign, double checkpointLatitude, double checkPointLongitude) {
@@ -121,7 +130,7 @@ namespace GPS_Utils {
     void calculateHeadingDelta(int speed) {
         uint8_t TurnMinAngle;
         double headingDelta = abs(previousHeading - currentHeading);
-        if (lastTx > currentSmartBeaconValues.minDeltaBeacon * 1000) {
+        if (lastTx > (uint32_t)(currentSmartBeaconValues.minDeltaBeacon * 1000)) {
             if (speed == 0) {
                 TurnMinAngle = currentSmartBeaconValues.turnMinDeg + (currentSmartBeaconValues.turnSlope/(speed + 1));
             } else {

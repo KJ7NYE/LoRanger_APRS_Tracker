@@ -35,12 +35,19 @@ extern bool             digipeaterActive;
 namespace NOTIFICATION_Utils {
 
     void playTone(int frequency, uint8_t duration) {
-        ledcSetup(channel, frequency, resolution);
-        ledcAttachPin(Config.notification.buzzerPinTone, 0);
-        ledcWrite(channel, 128);
-        delay(duration);
-        ledcWrite(channel, 0);
-        delay(pauseDuration);
+        #ifdef ARDUINO_ARCH_NRF52
+            // No LEDC PWM on nRF52; use Arduino's tone() which the Adafruit BSP
+            // provides on top of the PWM peripheral.
+            tone(Config.notification.buzzerPinTone, frequency, duration);
+            delay(duration + pauseDuration);
+        #else
+            ledcSetup(channel, frequency, resolution);
+            ledcAttachPin(Config.notification.buzzerPinTone, 0);
+            ledcWrite(channel, 128);
+            delay(duration);
+            ledcWrite(channel, 0);
+            delay(pauseDuration);
+        #endif
     }
 
     void beaconTxBeep() {

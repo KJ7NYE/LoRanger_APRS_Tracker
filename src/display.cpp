@@ -16,13 +16,36 @@
  * along with LoRa APRS Tracker. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "board_pinout.h"  // pulled to top so HAS_DISPLAY is in scope before headers it gates
+
+#ifndef HAS_DISPLAY
+
+// No-op stubs for headless variants (e.g. Heltec T114 during bring-up) so the
+// rest of the codebase can call into displayShow / displayToggle / etc.
+// without a real driver. Real implementations live below the #else.
+#include <Arduino.h>
+#include "display.h"
+
+// Globals also referenced from other TUs (keyboard/menu/station_utils). Keep
+// the same names/types as the real-display branch so external linkers resolve.
+uint8_t     screenBrightness    = 1;
+bool        symbolAvailable     = true;
+
+void displaySetup() {}
+void displayToggle(bool) {}
+void displayShow(const String&, const String&, const String&, int) {}
+void displayShow(const String&, const String&, const String&, const String&,
+                 const String&, const String&, int) {}
+void startupScreen(uint8_t, const String&) {}
+
+#else
+
 #include <logger.h>
 #include <Wire.h>
 #include "custom_characters.h"
 #include "custom_colors.h"
 #include "configuration.h"
 #include "station_utils.h"
-#include "board_pinout.h"
 #include "display.h"
 #include "TimeLib.h"
 
@@ -571,3 +594,5 @@ String fillMessageLine(const String& line, const int& length) {
     }
     return completeLine;
 }
+
+#endif // HAS_DISPLAY
