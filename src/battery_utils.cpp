@@ -84,7 +84,14 @@ namespace BATTERY_Utils {
                 #ifdef ADC_CTRL_PIN
                     digitalWrite(ADC_CTRL_PIN, !ADC_CTRL_ENABLED);
                 #endif
-                double voltage = (adc_value * 3.3 ) / 4095.0;
+                #ifdef ARDUINO_ARCH_NRF52
+                    // Matches POWER_Utils::setup's analogReference(AR_INTERNAL_3_0)
+                    // + analogReadResolution(12). Without those, this formula
+                    // would be off by ~5x.
+                    double voltage = (adc_value * 3.0) / 4095.0;
+                #else
+                    double voltage = (adc_value * 3.3) / 4095.0;
+                #endif
 
                 #ifdef LIGHTTRACKER_PLUS_1_0
                     double inputDivider = (1.0 / (560.0 + 100.0)) * 100.0;  // The voltage divider is a 560k + 100k resistor in series, 100k on the low side.

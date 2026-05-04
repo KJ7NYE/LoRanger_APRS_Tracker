@@ -318,6 +318,16 @@ namespace POWER_Utils {
     }
 
     void setup() {
+        #ifdef ARDUINO_ARCH_NRF52
+            // Configure nRF52 ADC to match the (adc_value * 3.0) / 4095.0
+            // formula used in BATTERY_Utils::readBatteryVoltage's nRF branch.
+            // BSP default is 0.6V internal reference at 10-bit, which would
+            // make analogRead values ~5x smaller than the formula expects
+            // and trip the low-battery shutdown on any boot.
+            analogReference(AR_INTERNAL_3_0);
+            analogReadResolution(12);
+        #endif
+
         #ifdef HAS_NO_GPS
             disableGPS = true;
         #else

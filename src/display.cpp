@@ -75,6 +75,17 @@ namespace {
     constexpr int      LINE_HEIGHT  = 14;       // size-1 char height + spacing
 
     void drawScreen(const String& header, const String* lines, int nLines) {
+        // Workaround: SPI1 / ST7789 state goes stale between drawScreen calls
+        // on the T114 — tft.fillScreen + tft.print silently no-op until we
+        // re-init the bus + chip. Root cause not yet identified (something
+        // between setup() and loop() deconfigures SPIM2 or the chip enters
+        // sleep). Re-initing each frame keeps the display alive at the cost
+        // of ~700 ms of init delays per render.
+        SPI1.end();
+        SPI1.begin();
+        tft.init(135, 240);
+        tft.setRotation(1);
+        tft.setTextWrap(false);
         tft.fillScreen(COLOR_BG);
         tft.setCursor(0, HEADER_Y);
         tft.setTextSize(2);

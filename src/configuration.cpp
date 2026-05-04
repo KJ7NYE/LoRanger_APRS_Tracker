@@ -206,6 +206,14 @@ bool Configuration::readFile() {
             Serial.println("Failed to read file, using default configuration");
         }
 
+        // Clear vectors before re-populating. Matters on nRF52: the gutted
+        // Configuration constructor calls setDefaultValues() to seed the
+        // vectors so file-scope globals (myBeaconsSize etc.) get sane values
+        // before main() runs; readFile() then runs from setup() and would
+        // otherwise append to the already-seeded vectors instead of replacing.
+        beacons.clear();
+        loraTypes.clear();
+
         if (data["wifiAP"]["active"].isNull() ||
             data["wifiAP"]["bootWindow"].isNull() ||
             data["wifiAP"]["password"].isNull()) needsRewrite = true;

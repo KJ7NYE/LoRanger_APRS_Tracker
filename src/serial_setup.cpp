@@ -124,6 +124,7 @@ namespace SERIAL_Setup {
         Serial.println(F("  discard                    leave without saving"));
         Serial.println(F("  exit                       leave (errors if dirty)"));
         Serial.println(F("  reboot                     ESP.restart()"));
+        Serial.println(F("  format YES-ERASE-ALL       wipe LittleFS/SPIFFS, reboot to defaults"));
         Serial.println(F("  log <off|error|warn|info|debug>"));
         Serial.println(F("\n-- beacons --"));
         Serial.println(F("  beacon list"));
@@ -804,6 +805,33 @@ namespace SERIAL_Setup {
             #else
                 ESP.restart();
             #endif
+        }
+        else if (cmd == "format") {
+            // Wipe the on-device filesystem partition (LittleFS on nRF52,
+            // SPIFFS on ESP32). After reset the next boot's first-boot writer
+            // re-creates tracker_conf.json from embedded defaults.
+            // Requires an explicit hard-to-mistype confirmation token.
+            if (n < 2 || String(tk[1]) != "YES-ERASE-ALL") {
+                Serial.println(F("WARNING: 'format' erases the on-device filesystem (config,"));
+                Serial.println(F("saved messages, indices). On reboot the firmware re-creates"));
+                Serial.println(F("config from embedded defaults — your callsign etc. resets."));
+                Serial.println(F("To proceed:  format YES-ERASE-ALL"));
+            } else {
+                Serial.println(F("Formatting partition..."));
+                delay(200);
+                #ifdef ARDUINO_ARCH_NRF52
+                    InternalFS.format();
+                #else
+                    SPIFFS.format();
+                #endif
+                Serial.println(F("Format done. Rebooting..."));
+                delay(500);
+                #ifdef ARDUINO_ARCH_NRF52
+                    NVIC_SystemReset();
+                #else
+                    ESP.restart();
+                #endif
+            }
         }
         else if (cmd == "log")                      cmdLog(tk, n);
         else if (cmd == "beacon")                   cmdBeacon(tk, n, line);

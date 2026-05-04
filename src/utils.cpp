@@ -148,6 +148,13 @@ namespace Utils {
     }
 
     void i2cScannerForPeripherals() {
+        #ifdef ARDUINO_ARCH_NRF52
+            // Wire is uninitialized by default on Adafruit nRF52 BSP — the
+            // beginTransmission/endTransmission calls below would hit an
+            // unconfigured TWIM peripheral and hang. Other boards init Wire
+            // via their power_utils.cpp branches; nRF52 needs it explicit.
+            Wire.begin();
+        #endif
         uint8_t err, addr;
         if (Config.telemetry.active) {
             for (addr = 1; addr < 0x7F; addr++) {
