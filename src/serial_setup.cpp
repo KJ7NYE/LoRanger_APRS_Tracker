@@ -690,6 +690,9 @@ namespace SERIAL_Setup {
             return;
         }
 
+        #ifdef ARDUINO_ARCH_NRF52
+            SPIFFS.remove("/tracker_conf.json");
+        #endif
         File f = SPIFFS.open("/tracker_conf.json", "w");
         if (!f) {
             Serial.println(F("[import] failed to open file for write"));

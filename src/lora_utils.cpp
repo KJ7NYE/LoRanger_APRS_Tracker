@@ -36,6 +36,9 @@ bool operationDone   = true;
 bool transmitFlag    = true;
 
 #if defined(HAS_SX1262)
+    // On HELTEC_T114, variants_bsp/heltec_t114/variant.h sets PIN_SPI_MISO/MOSI/SCK
+    // to the LoRa pins (P0.23/22/19), so the BSP's default `SPI` global is already
+    // the LoRa bus — no custom SPIClass needed, and SPIM2 stays free for SPI1 (TFT).
     SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 #endif
 #if defined(HAS_SX1268)
@@ -118,7 +121,7 @@ namespace LoRa_Utils {
             loraSPI.begin(RADIO_SCLK_PIN, RADIO_MISO_PIN, RADIO_MOSI_PIN, RADIO_CS_PIN);
         #else
             #ifdef ARDUINO_ARCH_NRF52
-                SPI.begin();   // Adafruit nRF52 BSP's SPI.begin() takes no args; pins are fixed by the BSP variant
+                SPI.begin();   // Adafruit nRF52 BSP's SPI.begin() takes no args; pins are fixed by the BSP variant (PIN_SPI_*)
             #else
                 SPI.begin(RADIO_SCLK_PIN, RADIO_MISO_PIN, RADIO_MOSI_PIN);
             #endif

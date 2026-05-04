@@ -153,6 +153,12 @@ public:
     void setDefaultValues();
     bool writeFile();
     Configuration();
+    // nRF52-only: filesystem-backed setup deferred from the constructor because
+    // static init runs before FreeRTOS / InternalFS is up. ESP32 builds run the
+    // same logic from the constructor as before. Call once early in setup().
+    #ifdef ARDUINO_ARCH_NRF52
+    void init();
+    #endif
 
 private:
     bool readFile();

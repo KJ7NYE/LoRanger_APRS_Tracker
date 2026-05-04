@@ -53,11 +53,13 @@ void startupScreen(uint8_t, const String&) {}
 #include <SPI.h>
 #include "display.h"
 
-// Software SPI constructor — pins are bit-banged. Software SPI is slow but
-// sidesteps the second-SPI-peripheral coordination needed for hardware SPI
-// on a TFT bus separate from the LoRa bus. Acceptable for text-only updates.
-static Adafruit_ST7789 tft(TFT_CS_PIN, TFT_DC_PIN, TFT_MOSI_PIN,
-                           TFT_SCLK_PIN, TFT_RST_PIN);
+// Hardware SPI on the BSP's secondary `SPI1` global, which the vendored
+// variants_bsp/heltec_t114/variant.h wires to ST7789_SDA/SCK (P1.9/P1.8) on
+// NRF_SPIM2. This avoids the ~20-second software-SPI fillScreen hang of the
+// previous bit-banged path. The default `SPI` (NRF_SPIM3) is owned by RadioLib
+// for the LoRa SX1262 on its own dedicated pins.
+extern SPIClass SPI1;
+static Adafruit_ST7789 tft(&SPI1, TFT_CS_PIN, TFT_DC_PIN, TFT_RST_PIN);
 
 // Globals also referenced from other TUs (keyboard/menu/station_utils).
 uint8_t     screenBrightness    = 255;
@@ -90,10 +92,22 @@ namespace {
 }
 
 void displaySetup() {
+    #ifdef HELTEC_T114
+        // T114 has a separate VTFT_CTRL pin (P0.3) that gates power to the
+        // TFT regulator. Active-LOW per meshtastic's TFTDisplay.cpp — drive
+        // LOW to enable, HIGH to disable. Without enabling this, the TFT is
+        // unpowered and SPI commands disappear into the void.
+        pinMode(3, OUTPUT);              // VTFT_CTRL = (0 + 3)
+        digitalWrite(3, LOW);
+        delay(10);                       // let TFT power settle
+    #endif
+    // Backlight: T114 variant.h declares TFT_BACKLIGHT_ON LOW (active-LOW),
+    // so drive LOW to turn the backlight on. Other ST7789 boards may differ.
     pinMode(TFT_BL_PIN, OUTPUT);
-    digitalWrite(TFT_BL_PIN, HIGH);
-    tft.init(135, 240);             // native portrait 135x240
-    tft.setRotation(1);             // landscape -> 240x135
+    digitalWrite(TFT_BL_PIN, LOW);
+    SPI1.begin();                       // bring up the BSP's secondary SPI bus (NRF_SPIM2)
+    tft.init(135, 240);                 // native portrait 135x240
+    tft.setRotation(1);                 // landscape -> 240x135
     tft.fillScreen(COLOR_BG);
     tft.setTextWrap(false);
 }

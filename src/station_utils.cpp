@@ -287,6 +287,9 @@ namespace STATION_Utils {
             default: return; // Invalid type, exit function
         }
 
+        #ifdef ARDUINO_ARCH_NRF52
+            SPIFFS.remove(filePath);
+        #endif
         File fileIndex = SPIFFS.open(filePath, "w");
         if (!fileIndex) return;
 

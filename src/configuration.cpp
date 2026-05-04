@@ -34,6 +34,7 @@
 #include "logger.h"
 #include "smartbeacon_utils.h"
 
+
 extern logging::Logger logger;
 
 bool Configuration::writeFile() {
@@ -41,6 +42,14 @@ bool Configuration::writeFile() {
     Serial.println("Saving config..");
 
     JsonDocument data;
+    #ifdef ARDUINO_ARCH_NRF52
+        // Adafruit_LittleFS's FILE_O_WRITE doesn't truncate (it seeks to end
+        // for SD-compatible append). Earlier we used truncate(0)+seek(0) but
+        // that triggered an lfs pcache assertion when called right after a
+        // close(). Removing-then-creating is cleaner: lfs state is fresh on
+        // open, no leftover cache from the previous handle.
+        SPIFFS.remove("/tracker_conf.json");
+    #endif
     File configFile = SPIFFS.open("/tracker_conf.json", "w");
 
     if (!configFile) {
@@ -163,12 +172,36 @@ bool Configuration::writeFile() {
 
 bool Configuration::readFile() {
     Serial.println("Reading config..");
+    #ifdef ARDUINO_ARCH_NRF52
+    #endif
     File configFile = SPIFFS.open("/tracker_conf.json", "r");
 
     if (configFile) {
         bool needsRewrite = false;
         JsonDocument data;
+        #ifdef ARDUINO_ARCH_NRF52
+        // Slurp into a String buffer first, then deserialize from buffer
+        // rather than streaming directly from the lfs File. The lfs Stream
+        // interface had pcache assertion issues during T114 bring-up; the
+        // buffer-based path is more robust and bounds heap up-front. 16 KB
+        // cap matches the import-paste cap.
+        size_t fsz = configFile.size();
+        if (fsz > 16384) {
+            Serial.println("[readFile] config file too big, treating as corrupt");
+            configFile.close();
+            return false;
+        }
+        String buf;
+        buf.reserve(fsz + 1);
+        while (configFile.available()) {
+            int c = configFile.read();
+            if (c < 0) break;
+            buf += (char)c;
+        }
+        DeserializationError error = deserializeJson(data, buf);
+        #else
         DeserializationError error = deserializeJson(data, configFile);
+        #endif
         if (error) {
             Serial.println("Failed to read file, using default configuration");
         }
@@ -473,6 +506,20 @@ void Configuration::setDefaultValues() {
 }
 
 Configuration::Configuration() {
+    #ifdef ARDUINO_ARCH_NRF52
+        // SPIFFS / InternalFS access is deferred to Configuration::init() on
+        // nRF52 because file-scope globals run their constructors before
+        // FreeRTOS is up, and InternalFS.begin() uses xSemaphoreCreateMutex.
+        // Populate in-memory defaults so other file-scope globals
+        // (myBeaconsSize, currentBeacon, etc.) get sane values; setup() calls
+        // init() once FreeRTOS / InternalFS is ready.
+        setDefaultValues();
+        return;
+    #endif
+
+    // ESP32 path — Arduino-ESP32 starts FreeRTOS before static init runs, so
+    // it's safe to do filesystem work right here. Keeps merge surface against
+    // upstream small (no setup()-side restructuring needed for ESP32).
     if (!SPIFFS.begin(false)) {
         Serial.println("SPIFFS Mount Failed, formatting...");
 
@@ -484,33 +531,72 @@ Configuration::Configuration() {
     Serial.println("SPIFFS Ready");
 
     if (!SPIFFS.exists("/tracker_conf.json")) {
-        #ifdef ARDUINO_ARCH_NRF52
-            // nRF52 has no PlatformIO `uploadfs` equivalent for InternalFS, so
-            // first-boot writes the embedded JSON (generated from data/tracker_conf.json
-            // by tools/embed_config.py) directly to LittleFS, then reboots so the
-            // normal readFile() path picks it up.
-            Serial.println("Config not found, writing embedded default JSON...");
-            File f = SPIFFS.open("/tracker_conf.json", "w");
-            if (f) {
-                f.write((const uint8_t*)DEFAULT_CONFIG_JSON, strlen(DEFAULT_CONFIG_JSON));
-                f.close();
-            } else {
-                Serial.println("Embedded default write failed; falling back to setDefaultValues()");
-                setDefaultValues();
-                writeFile();
-            }
-        #else
-            Serial.println("Config not found, creating default...");
-            setDefaultValues();
-            writeFile();
-        #endif
+        Serial.println("Config not found, creating default...");
+        setDefaultValues();
+        writeFile();
         delay(500);
-        #ifdef ARDUINO_ARCH_NRF52
-            NVIC_SystemReset();
-        #else
+        #ifndef ARDUINO_ARCH_NRF52
             ESP.restart();
         #endif
     }
 
     readFile();
 }
+
+#ifdef ARDUINO_ARCH_NRF52
+void Configuration::init() {
+    if (!SPIFFS.begin(false)) {
+        Serial.println("SPIFFS Mount Failed, formatting...");
+
+        if (!SPIFFS.begin(true)) {
+            Serial.println("SPIFFS Format Failed");
+            return;
+        }
+    }
+    Serial.println("SPIFFS Ready");
+
+    // Defensive recovery: if the on-disk config file is suspiciously large
+    // (the healthy size is ~1.5-3 KB), the LittleFS partition is corrupt or
+    // bloated by a previous bug (e.g. the FILE_O_WRITE-seeks-to-end append
+    // loop we hit during T114 bring-up). Reformat rather than feeding a
+    // multi-KB blob to ArduinoJson — a huge file can exhaust heap and hang.
+    // Defensive recovery: if the on-disk config file is suspiciously large
+    // (healthy size is ~1.5-3 KB), the LittleFS partition is corrupt or
+    // bloated. Reformat rather than feeding a multi-KB blob to ArduinoJson.
+    if (SPIFFS.exists("/tracker_conf.json")) {
+        File check(InternalFS);
+        if (check.open("/tracker_conf.json", Adafruit_LittleFS_Namespace::FILE_O_READ)) {
+            size_t sz = check.size();
+            check.close();
+            if (sz > 8192) {
+                Serial.print("[init] config file size ");
+                Serial.print((unsigned)sz);
+                Serial.println(" bytes — too large, reformatting partition");
+                InternalFS.format();
+                if (!InternalFS.begin()) return;
+            }
+        }
+    }
+
+    if (!SPIFFS.exists("/tracker_conf.json")) {
+        // nRF52 has no PlatformIO `uploadfs` equivalent for InternalFS, so
+        // first-boot writes the embedded JSON (generated from data/tracker_conf.json
+        // by tools/embed_config.py) directly to LittleFS, then reboots so the
+        // normal readFile() path picks it up.
+        Serial.println("Config not found, writing embedded default JSON...");
+        // No need to remove — exists() returned false, file genuinely doesn't exist.
+        File f = SPIFFS.open("/tracker_conf.json", "w");
+        if (f) {
+            f.write((const uint8_t*)DEFAULT_CONFIG_JSON, strlen(DEFAULT_CONFIG_JSON));
+            f.close();
+        } else {
+            Serial.println("Embedded default write failed; falling back to setDefaultValues()");
+            setDefaultValues();
+            writeFile();
+        }
+        delay(500);
+        NVIC_SystemReset();
+    }
+    readFile();
+}
+#endif

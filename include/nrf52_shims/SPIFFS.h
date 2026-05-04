@@ -23,7 +23,14 @@
 
 class _SpiffsCompat {
 public:
-    bool begin(bool /*formatOnFail*/ = false) {
+    bool begin(bool formatOnFail = false) {
+        if (InternalFS.begin()) return true;
+        if (!formatOnFail) return false;
+        // Match SPIFFS.begin(true) semantics: try to format and re-mount.
+        // The append-loop bug we hit during T114 bring-up could leave the
+        // partition in a state where lfs metadata refuses to mount; only
+        // format-and-retry recovers without an external tool.
+        InternalFS.format();
         return InternalFS.begin();
     }
     bool exists(const char* path) { return InternalFS.exists(path); }
@@ -31,13 +38,18 @@ public:
 
     Adafruit_LittleFS_Namespace::File open(const char* path,
                                            const char* mode = "r") {
-        Adafruit_LittleFS_Namespace::File f(InternalFS);
-        if (mode && (mode[0] == 'w' || mode[0] == 'a')) {
-            f.open(path, Adafruit_LittleFS_Namespace::FILE_O_WRITE);
-        } else {
-            f.open(path, Adafruit_LittleFS_Namespace::FILE_O_READ);
-        }
-        return f;
+        // Return as a prvalue so C++ copy elision (mandatory for prvalues
+        // since C++17, and almost always applied by NRVO before that)
+        // constructs the File directly in the caller's variable. Adafruit's
+        // File class auto-closes in its destructor when _opened is true and
+        // has no proper copy/move ctor — so a named local + `return f;`
+        // makes the *temporary*'s destructor close the file before the
+        // caller can use it, leaving the caller with a stale handle.
+        const uint8_t flags =
+            (mode && (mode[0] == 'w' || mode[0] == 'a'))
+                ? Adafruit_LittleFS_Namespace::FILE_O_WRITE
+                : Adafruit_LittleFS_Namespace::FILE_O_READ;
+        return Adafruit_LittleFS_Namespace::File(path, flags, InternalFS);
     }
     Adafruit_LittleFS_Namespace::File open(const String& path,
                                            const char* mode = "r") {

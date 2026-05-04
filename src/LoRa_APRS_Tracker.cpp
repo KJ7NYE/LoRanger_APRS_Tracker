@@ -151,6 +151,12 @@ void setup() {
     #endif
     Serial.begin(115200);
 
+    #ifdef ARDUINO_ARCH_NRF52
+        // FreeRTOS is now running, InternalFS is safe — finish what
+        // Configuration's constructor would have done on ESP32.
+        Config.init();
+    #endif
+
     #ifndef DEBUG
         logger.setDebugLevel(logging::LoggerLevel::LOGGER_LEVEL_INFO);
     #endif
