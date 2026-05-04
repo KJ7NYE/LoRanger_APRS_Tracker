@@ -74,35 +74,47 @@ namespace {
     constexpr int      BODY_Y       = 24;       // below 16 px size-2 header + padding
     constexpr int      LINE_HEIGHT  = 14;       // size-1 char height + spacing
 
+    // Cached last-drawn content. Only lines that actually changed get
+    // re-painted, avoiding flicker on every refresh tick when (e.g.) only
+    // the seconds field updates.
+    constexpr int MAX_CACHED_LINES = 5;
+    String  _prevHeader     = "\xFF";    // sentinel — won't match any real header on first call
+    String  _prevLines[MAX_CACHED_LINES];
+    bool    _cacheValid     = false;     // false after displaySetup, forces full repaint
+
     void drawScreen(const String& header, const String* lines, int nLines) {
-        // Workaround: SPI1 / ST7789 state goes stale between drawScreen calls
-        // on the T114 — tft.fillScreen + tft.print silently no-op until we
-        // re-init the bus + chip. Root cause not yet identified (something
-        // between setup() and loop() deconfigures SPIM2 or the chip enters
-        // sleep). Re-initing each frame keeps the display alive at the cost
-        // of ~700 ms of init delays per render.
-        SPI1.end();
-        SPI1.begin();
-        tft.init(135, 240);
-        tft.setRotation(1);
-        tft.setTextWrap(false);
-        tft.fillScreen(COLOR_BG);
-        tft.setCursor(0, HEADER_Y);
-        tft.setTextSize(2);
-        tft.setTextColor(COLOR_HEADER, COLOR_BG);
-        tft.println(header);
+        const int16_t w = tft.width();
+
+        if (!_cacheValid || header != _prevHeader) {
+            tft.fillRect(0, HEADER_Y, w, 16, COLOR_BG);
+            tft.setCursor(0, HEADER_Y);
+            tft.setTextSize(2);
+            tft.setTextColor(COLOR_HEADER);
+            tft.print(header);
+            _prevHeader = header;
+        }
+
         tft.setTextSize(1);
-        tft.setTextColor(COLOR_BODY, COLOR_BG);
+        tft.setTextColor(COLOR_BODY);
         int y = BODY_Y;
-        for (int i = 0; i < nLines; i++) {
-            tft.setCursor(0, y);
-            tft.println(lines[i]);
+        for (int i = 0; i < nLines && i < MAX_CACHED_LINES; i++) {
+            if (!_cacheValid || lines[i] != _prevLines[i]) {
+                tft.fillRect(0, y, w, LINE_HEIGHT, COLOR_BG);
+                tft.setCursor(0, y);
+                tft.print(lines[i]);
+                _prevLines[i] = lines[i];
+            }
             y += LINE_HEIGHT;
         }
+        _cacheValid = true;
     }
 }
 
 void displaySetup() {
+    // The TFT was just (re)initialized; whatever drawScreen thought it
+    // had drawn is gone. Force a full redraw on the next drawScreen call.
+    // (anon-namespace symbol; visible at file scope.)
+    _cacheValid = false;
     #ifdef HELTEC_T114
         // T114 has a separate VTFT_CTRL pin (P0.3) that gates power to the
         // TFT regulator. Active-LOW per meshtastic's TFTDisplay.cpp — drive

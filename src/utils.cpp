@@ -142,6 +142,7 @@ namespace Utils {
     }
 
     void checkFlashlight() {
+        if (!Config.notification.ledFlashlight) return;   // feature off, leave the pin alone
         bool desiredState       = flashlight ? HIGH : LOW;
         uint8_t flashlightPin   = Config.notification.ledFlashlightPin;
         if (desiredState != digitalRead(flashlightPin)) digitalWrite(flashlightPin, desiredState);

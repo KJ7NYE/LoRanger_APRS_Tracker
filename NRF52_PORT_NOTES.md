@@ -42,6 +42,34 @@ Five-step PR landed as four commits. Each step is a green-build checkpoint on it
 
 **ESP32 envs unchanged** — `heltec_wireless_tracker` measured at 46.9% / 17.3% throughout PR-1, identical to pre-PR baseline.
 
+### T114 default-pin conflicts (notification subsystem)
+
+`setDefaultValues()` in [src/configuration.cpp](src/configuration.cpp) ships generic ESP32-era defaults for the LED / buzzer pins that overlap critical hardware on the T114:
+
+| Default field           | Pin | T114 hardware function       |
+|---|---|---|
+| `notification.ledTxPin`        | 13 | `PIN_WIRE1_SCL` (I2C bus 1) |
+| `notification.ledMessagePin`   |  2 | `TFT_RST_PIN` (resets the ST7789!) |
+| `notification.ledFlashlightPin`| 14 | `NEOPIXEL_DATA` (onboard 2× neopixels) |
+| `notification.buzzerPinVcc`    | 25 | `SX126X_RESET` (resets the LoRa radio!) |
+
+Two layers of protection are in place:
+
+1. **Function-level gates** — `MSG_Utils::ledNotification()` / `Utils::checkFlashlight()` early-return if the corresponding feature flag (`Config.notification.ledMessage` / `Config.notification.ledFlashlight`) is off, so the pin is never touched even if it were unsafe. Buzzer entry points already gate on `Config.notification.buzzerActive` at every call site.
+2. **Per-board macro overrides in `board_pinout.h`** — `setDefaultValues()` reads `LED_TX_PIN_DEFAULT` / `LED_MESSAGE_PIN_DEFAULT` / `BUZZER_TONE_PIN_DEFAULT` / `BUZZER_VCC_PIN_DEFAULT` / `LED_FLASHLIGHT_PIN_DEFAULT` instead of hard-coding pin numbers. The fallback values (13 / 2 / 33 / 25 / 14) match the historical ESP32 defaults; T114's [board_pinout.h](variants/heltec_t114/board_pinout.h) overrides all five to `-1`. `digitalWrite(-1, …)` is a no-op on Adafruit's BSP (out of `NUM_DIGITAL_PINS` range), so even if a feature is later enabled, the user must point the pin at an actual safe pad before anything happens.
+
+If a future nRF52 variant has different pin overlaps, set the same macros in its `board_pinout.h`. **Do not** rely solely on the function-level gates — those protect the *default-off* case but a user enabling a feature should not be one config write away from a TFT-reset / radio-reset / I²C-pullup-fight.
+
+### Root cause of the T114 "screen goes black after boot" hang
+
+Worth recording because the symptom (TFT goes black ~1 s after `loop()` starts) was nothing like the actual bug:
+
+- `MSG_Utils::ledNotification()` originally probed `digitalRead(Config.notification.ledMessagePin)` *every loop iteration*, regardless of whether the LED-message feature was enabled — only the feature's runtime *event* (`messageLed` flag set on incoming msg) gated the HIGH/blink path; the "reset to LOW if pin reads HIGH" branch ran unconditionally.
+- On T114 the default `ledMessagePin = 2` is the same physical pin as `TFT_RST_PIN`. After `tft.init()` released RST to HIGH, the next loop iteration's `ledNotification()` read HIGH, decided the LED was "stuck on", and yanked the pin LOW → ST7789 enters reset → display content goes black and stays.
+- Bisection took longer than the fix because the symptom suggested an SPI1 / SPIM2 deinitialization problem when the actual culprit was a totally unrelated pin write to a coincidentally-shared GPIO.
+
+Lesson for future ports: every unconditional `digitalWrite` to a config-driven pin number is a latent bug if the pin map varies between boards — even when the function looks unrelated to the affected hardware. The fix above (gate on the feature flag) is a structural improvement, not a band-aid.
+
 ### Notes for future maintainers
 
 - **PIO LDF discovery quirk** — LDF doesn't crawl `#include`s reached via custom `-I` paths (like `include/nrf52_shims/`). Worked around by an explicit `#include <Adafruit_LittleFS.h>` in [src/configuration.cpp](src/configuration.cpp) gated on nRF, plus `lib_extra_dirs = ${platformio.packages_dir}/framework-arduinoadafruitnrf52/libraries` in the variant ini. If a future shim needs another BSP-bundled lib, repeat that pattern.

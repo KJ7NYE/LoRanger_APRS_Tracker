@@ -201,6 +201,7 @@ namespace MSG_Utils {
     }
 
     void ledNotification() {
+        if (!Config.notification.ledMessage) return;   // feature off, leave the pin alone
         uint32_t currentTime = millis();
         uint32_t ledTimeDelta = currentTime - messageLedTime;
         if (messageLed) {

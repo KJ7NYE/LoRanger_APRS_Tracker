@@ -54,6 +54,22 @@
 #define BUTTON_PIN              (32 + 10)
 #define INTERNAL_LED_PIN        (32 + 3)
 
+// ---- Notification-feature pin defaults --------------------------------------
+// The generic defaults in setDefaultValues() (LED_TX_PIN_DEFAULT = 13, etc.)
+// land on pins that have critical hardware functions on the T114:
+//   pin  2 = TFT_RST_PIN   (toggling resets the ST7789)
+//   pin 13 = PIN_WIRE1_SCL (I2C bus 1)
+//   pin 14 = NEOPIXEL_DATA (T114 has 2 onboard neopixels)
+//   pin 25 = SX126X_RESET  (toggling resets the LoRa radio)
+//   pin 33 = P1.1          (appears unused on T114 V1)
+// Override to -1 so even if the user later enables a feature, the pin write
+// is a no-op until they pick a safe pad via the CLI.
+#define LED_TX_PIN_DEFAULT          -1
+#define LED_MESSAGE_PIN_DEFAULT     -1
+#define BUZZER_TONE_PIN_DEFAULT     -1
+#define BUZZER_VCC_PIN_DEFAULT      -1
+#define LED_FLASHLIGHT_PIN_DEFAULT  -1
+
 // ---- I2C --------------------------------------------------------------------
 // Adafruit nRF52 BSP exposes Wire on PIN_WIRE_SDA/SCL via the variant — we use
 // Wire.begin() (no args) on nRF rather than naming pins here. The marketed I2C

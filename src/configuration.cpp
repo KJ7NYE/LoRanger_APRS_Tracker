@@ -474,13 +474,34 @@ void Configuration::setDefaultValues() {
 
     winlink.password                = "NOPASS";
 
+    // Per-board defaults for the notification subsystem pins. Each variant's
+    // board_pinout.h can override any of these to a safe pad (or -1 for
+    // "no pin") if the generic defaults overlap critical hardware. The
+    // -1 sentinel makes pin writes a no-op on Adafruit's BSP since it falls
+    // outside NUM_DIGITAL_PINS.
+    #ifndef LED_TX_PIN_DEFAULT
+        #define LED_TX_PIN_DEFAULT 13
+    #endif
+    #ifndef LED_MESSAGE_PIN_DEFAULT
+        #define LED_MESSAGE_PIN_DEFAULT 2
+    #endif
+    #ifndef BUZZER_TONE_PIN_DEFAULT
+        #define BUZZER_TONE_PIN_DEFAULT 33
+    #endif
+    #ifndef BUZZER_VCC_PIN_DEFAULT
+        #define BUZZER_VCC_PIN_DEFAULT 25
+    #endif
+    #ifndef LED_FLASHLIGHT_PIN_DEFAULT
+        #define LED_FLASHLIGHT_PIN_DEFAULT 14
+    #endif
+
     notification.ledTx              = false;
-    notification.ledTxPin           = 13;
+    notification.ledTxPin           = LED_TX_PIN_DEFAULT;
     notification.ledMessage         = false;
-    notification.ledMessagePin      = 2;
+    notification.ledMessagePin      = LED_MESSAGE_PIN_DEFAULT;
     notification.buzzerActive       = false;
-    notification.buzzerPinTone      = 33;
-    notification.buzzerPinVcc       = 25;
+    notification.buzzerPinTone      = BUZZER_TONE_PIN_DEFAULT;
+    notification.buzzerPinVcc       = BUZZER_VCC_PIN_DEFAULT;
     notification.bootUpBeep         = false;
     notification.txBeep             = false;
     notification.messageRxBeep      = false;
@@ -488,7 +509,7 @@ void Configuration::setDefaultValues() {
     notification.lowBatteryBeep     = false;
     notification.shutDownBeep       = false;
     notification.ledFlashlight      = false;
-    notification.ledFlashlightPin   = 14;
+    notification.ledFlashlightPin   = LED_FLASHLIGHT_PIN_DEFAULT;
 
     ptt.active                      = false;
     ptt.reverse                     = false;
